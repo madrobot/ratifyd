@@ -1,8 +1,17 @@
+import { useState, useEffect } from 'react'
+import { parseFragment, type Route } from './lib/router'
+import LandingPage from './components/LandingPage/LandingPage'
+import Room from './components/Room/Room'
+
 export default function App() {
-  return (
-    <div>
-      <h1>Ratifyd</h1>
-      <p>Ephemeral technical interviewing platform</p>
-    </div>
-  )
+  const [route, setRoute] = useState<Route>(() => parseFragment())
+
+  useEffect(() => {
+    const fn = () => setRoute(parseFragment())
+    window.addEventListener('hashchange', fn)
+    return () => window.removeEventListener('hashchange', fn)
+  }, [])
+
+  if (route.route === 'room') return <Room token={route.token} />
+  return <LandingPage />
 }
