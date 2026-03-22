@@ -6,6 +6,8 @@ export const ROLES = {
 
 export type Role = typeof ROLES[keyof typeof ROLES]
 
+export type JWTToken = string & { readonly __brand: 'JWTToken' }
+
 export const JWT_EXPIRY_SECONDS = 60 * 60 * 24 // 24 hours
 
 export const YJS_ROOM_PREFIX = 'ratifyd-room-'

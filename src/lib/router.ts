@@ -1,6 +1,8 @@
+import type { JWTToken } from '../constants'
+
 export type Route =
   | { route: 'landing'; token: null }
-  | { route: 'room';    token: string }
+  | { route: 'room';    token: JWTToken }
 
 /**
  * Parses the URL fragment.
@@ -13,16 +15,16 @@ export function parseFragment(): Route {
   const params = new URLSearchParams(hash)
   const token  = params.get('token')
   if (!token) return { route: 'landing', token: null }
-  return { route: 'room', token }
+  return { route: 'room', token: token as JWTToken }
 }
 
-export function navigateToRoom(token: string): void {
+export function navigateToRoom(token: JWTToken): void {
   const params = new URLSearchParams()
   params.set('token', token)
   window.location.hash = params.toString()
 }
 
-export function buildInviteURL(token: string): string {
+export function buildInviteURL(token: JWTToken): string {
   const params = new URLSearchParams()
   params.set('token', token)
   return `${window.location.origin}${window.location.pathname}#${params.toString()}`

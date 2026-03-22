@@ -1,4 +1,6 @@
-export default function Room({ token }: { token: string }) {
+import type { JWTToken } from '../../constants'
+
+export default function Room({ token }: { token: JWTToken }) {
   return (
     <div>
       <h1>Room</h1>
