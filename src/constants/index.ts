@@ -6,7 +6,26 @@ export const ROLES = {
 
 export type Role = typeof ROLES[keyof typeof ROLES]
 
-export type ClaimToken = string & { readonly __brand: 'ClaimToken' }
+export interface JWTHeader {
+  alg: string
+  typ: string
+}
+
+export interface JWTPayload {
+  room: string
+  role: Role
+  iss:  string
+  jti:  string
+  iat:  number
+  exp:  number
+}
+
+export interface ClaimToken {
+  header:    JWTHeader
+  payload:   JWTPayload
+  signature: string
+  raw:       string
+}
 
 export const JWT_EXPIRY_SECONDS = 60 * 60 * 24 // 24 hours
 

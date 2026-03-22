@@ -4,7 +4,8 @@ export default function Room({ token }: { token: ClaimToken }) {
   return (
     <div>
       <h1>Room</h1>
-      <p>Token: {token}</p>
+      <p>Room: {token.payload.room}</p>
+      <p>Role: {token.payload.role}</p>
     </div>
   )
 }
