@@ -46,3 +46,8 @@ export const STORAGE_KEYS = {
   ROOM_KEY:  'ratifyd:roomkey',    // AES-GCM room key     (owner + moderators)
   PEER_ID:   'ratifyd:peerId',     // Stable identity UUID
 } as const
+
+// sessionStorage keys — die on tab close
+export const SESSION_KEYS = {
+  GUEST_PEER_ID: 'ratifyd:guestPeerId',
+} as const
