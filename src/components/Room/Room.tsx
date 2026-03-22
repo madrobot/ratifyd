@@ -1,6 +1,6 @@
-import type { JWTToken } from '../../constants'
+import type { ClaimToken } from '../../constants'
 
-export default function Room({ token }: { token: JWTToken }) {
+export default function Room({ token }: { token: ClaimToken }) {
   return (
     <div>
       <h1>Room</h1>
