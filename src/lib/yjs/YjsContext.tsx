@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { WebrtcProvider } from 'y-webrtc'
 import { createYjsDoc, getSharedTypes, type SharedTypes } from './doc'
 import { initProviders } from './providers'
@@ -23,28 +23,28 @@ interface YjsProviderProps {
  * must be fully restored before any peer connection is evaluated.
  */
 export function YjsProvider({ roomId, children }: YjsProviderProps) {
-  const [ready, setReady] = useState(false)
-  const valueRef = useRef<YjsContextValue | null>(null)
+  const [value, setValue] = useState<YjsContextValue | null>(null)
 
   useEffect(() => {
     const ydoc = createYjsDoc()
     const shared = getSharedTypes(ydoc)
     const { webrtcProvider, indexeddbSynced, destroy } = initProviders(ydoc, roomId)
 
-    valueRef.current = { ydoc, shared, webrtc: webrtcProvider }
-    indexeddbSynced.then(() => setReady(true))
+    indexeddbSynced.then(() => setValue({ ydoc, shared, webrtc: webrtcProvider }))
 
     return () => {
       destroy()
       ydoc.destroy()
+      setValue(null)
     }
   }, [roomId])
 
-  if (!ready || !valueRef.current) return <div>Connecting...</div>
+  if (!value) return <div>Connecting...</div>
 
-  return <YjsContext.Provider value={valueRef.current}>{children}</YjsContext.Provider>
+  return <YjsContext.Provider value={value}>{children}</YjsContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useYjs(): YjsContextValue {
   const ctx = useContext(YjsContext)
   if (!ctx) throw new Error('useYjs must be used within YjsProvider')

@@ -130,10 +130,11 @@ describe('useYjs', () => {
 
   it('provides ydoc, shared, and webrtc after sync', async () => {
     const { YjsProvider, useYjs } = await import('./YjsContext')
-    let capturedCtx: ReturnType<typeof useYjs> | null = null
+    const result: { ctx: ReturnType<typeof useYjs> | null } = { ctx: null }
 
     function Consumer() {
-      capturedCtx = useYjs()
+      // eslint-disable-next-line react-hooks/immutability
+      result.ctx = useYjs()
       return <div data-testid="consumer" />
     }
 
@@ -147,10 +148,10 @@ describe('useYjs', () => {
       resolveIndexeddbSynced?.()
     })
 
-    expect(capturedCtx).not.toBeNull()
-    expect(capturedCtx!.ydoc).toBeInstanceOf(Y.Doc)
-    expect(capturedCtx!.shared).toHaveProperty('editorContent')
-    expect(capturedCtx!.webrtc).toBe(mockWebrtcProvider)
+    expect(result.ctx).not.toBeNull()
+    expect(result.ctx!.ydoc).toBeInstanceOf(Y.Doc)
+    expect(result.ctx!.shared).toHaveProperty('editorContent')
+    expect(result.ctx!.webrtc).toBe(mockWebrtcProvider)
   })
 
   it('throws when used outside YjsProvider', async () => {
