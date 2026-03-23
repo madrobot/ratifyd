@@ -8,10 +8,10 @@ import {
 import { importOaepPublicKey, wrapRoomKey } from '../crypto/oaep'
 import { loadRoomKey } from '../crypto/storage'
 import { ROLES } from '../../constants'
-import type { JWTPayload } from '../../constants'
+import type { JWTPayload, Role } from '../../constants'
 import type { SharedTypes } from '../yjs/doc'
 
-export interface AdmissionParams {
+export interface AdmissionRequest {
   token: string
   signingPubKeyB64: string
   oaepPubKeyB64: string | null // null for guests
@@ -21,12 +21,19 @@ export interface AdmissionParams {
   roomId: string
 }
 
-export interface AdmissionResult {
-  admitted: boolean
-  role: string | null
-  encryptedRoomKey: string | null // only for moderators on first admission
-  reason: string | null
-}
+export type AdmissionResponse =
+  | {
+      admitted: true
+      role: Role
+      encryptedRoomKey: string | null // only for moderators on first admission
+      reason: null
+    }
+  | {
+      admitted: false
+      role: null
+      encryptedRoomKey: null
+      reason: string
+    }
 
 /**
  * Returns true if the current peer is the owner who may self-admit.
@@ -85,13 +92,13 @@ export { generateNonce as issueNonce }
  * On guest success: no room key returned. Ever.
  */
 export async function evaluateAdmission(
-  params: AdmissionParams,
+  params: AdmissionRequest,
   shared: SharedTypes,
-): Promise<AdmissionResult> {
+): Promise<AdmissionResponse> {
   const { token, signingPubKeyB64, oaepPubKeyB64, nonce, signatureB64, peerId, roomId } = params
   const claimToken = decodeJWT(token)
   const { payload } = claimToken
-  const fail = (reason: string): AdmissionResult => ({
+  const fail = (reason: string): AdmissionResponse => ({
     admitted: false,
     role: null,
     encryptedRoomKey: null,
@@ -99,8 +106,6 @@ export async function evaluateAdmission(
   })
 
   if (payload.room !== roomId) return fail('WRONG_ROOM')
-
-  const isReconnect = shared.burnedJTIs.has(payload.jti)
 
   // Both paths verify JWT signature and expiry first
   const issuerPubKeyB64 = shared.trustedSigningKeys.get(payload.iss)
@@ -110,7 +115,7 @@ export async function evaluateAdmission(
   const jwtResult = await verifyJWT(claimToken, issuerPubKey)
   if (!jwtResult.valid) return fail(jwtResult.reason)
 
-  if (!isReconnect) {
+  if (!shared.burnedJTIs.has(payload.jti)) {
     // --- FIRST ADMISSION ---
     const incomingPubKey = await importSigningPublicKey(signingPubKeyB64)
     const sigOk = await verifySignature(incomingPubKey, base64urlToBuffer(signatureB64), nonce)
@@ -146,7 +151,7 @@ export async function evaluateAdmission(
   const peerRecord = shared.admittedPeers.get(peerId)
   return {
     admitted: true,
-    role: peerRecord?.role ?? payload.role,
+    role: (peerRecord?.role ?? payload.role) as Role,
     encryptedRoomKey: null,
     reason: null,
   }

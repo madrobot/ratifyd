@@ -43,6 +43,5 @@ export const STORAGE_KEYS = {
   OAEP_PRIV: 'ratifyd:oaep:priv', // RSA-OAEP private key (owner + moderators)
   OAEP_PUB: 'ratifyd:oaep:pub', // RSA-OAEP public key  (owner + moderators)
   ROOM_KEY: 'ratifyd:roomkey', // AES-GCM room key     (owner + moderators)
-  PEER_ID: 'ratifyd:peerId', // Stable identity UUID (owner + moderators)
-  GUEST_PEER_ID: 'ratifyd:guestPeerId', // Ephemeral guest identity UUID
+  PEER_ID: 'ratifyd:peerId', // Stable identity UUID (all roles)
 } as const

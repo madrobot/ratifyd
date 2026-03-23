@@ -9,8 +9,6 @@ import {
   loadSigningPublicKeyB64,
   loadPeerId,
   savePeerId,
-  loadGuestPeerId,
-  saveGuestPeerId,
 } from '../crypto/storage'
 import { isOwnerSelfAdmit, ownerSelfAdmit } from '../admission'
 import { useYjs } from '../yjs/YjsContext'
@@ -88,12 +86,12 @@ export function useSession(token: string): SessionState {
           }
         } else {
           // Guest — signing keypair only, no OAEP
-          peerId = loadGuestPeerId() ?? crypto.randomUUID()
+          peerId = loadPeerId() ?? crypto.randomUUID()
           const existingKey = await loadSigningPrivateKey(peerId)
           if (!existingKey) {
             const sigKP = await generateSigningKeyPair()
             await saveSigningKeyPair(sigKP.privateKey, sigKP.publicKey, peerId)
-            saveGuestPeerId(peerId)
+            savePeerId(peerId)
           }
         }
 

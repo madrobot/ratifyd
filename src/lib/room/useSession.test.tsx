@@ -305,9 +305,9 @@ describe('useSession', () => {
 
     // A guest peer ID should now be in localStorage
     await waitFor(() => {
-      expect(localStorage.getItem(STORAGE_KEYS.GUEST_PEER_ID)).not.toBeNull()
+      expect(localStorage.getItem(STORAGE_KEYS.PEER_ID)).not.toBeNull()
     })
-    expect(typeof localStorage.getItem(STORAGE_KEYS.GUEST_PEER_ID)).toBe('string')
+    expect(typeof localStorage.getItem(STORAGE_KEYS.PEER_ID)).toBe('string')
   })
 
   it('generates and saves a moderator peerId when one does not exist', async () => {
