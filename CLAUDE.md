@@ -7,6 +7,7 @@
 - Always write comprehensive and hollistic unit and functional tests
 - Always ensure the `gh` CLI is installed and authorized
 - Always put Claude as sole-author on commits, unless user asks for specific changes, then use Claude as co-author
+- Do no be so argreeable, try to push back on ideas and assuptions to discover higher-order problems
 
 ## Pull Requests
 
