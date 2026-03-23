@@ -23,6 +23,12 @@
 
 - Run `pnpm install` first
 
+## Peer Identity Storage
+
+- All roles (owner, moderator, guest) share a single peer identity key: `STORAGE_KEYS.PEER_ID`
+- Do NOT add a separate `GUEST_PEER_ID` constant to `STORAGE_KEYS`
+- Do NOT add `saveGuestPeerId` or `loadGuestPeerId` helper functions — use `savePeerId` / `loadPeerId` for all roles
+
 ## Knowledge Base
 
 - Whenever you work on this code base, always read the `docs/plans/ratifyd-adr.md`
