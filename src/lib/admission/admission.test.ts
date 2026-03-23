@@ -81,7 +81,6 @@ describe('isOwnerSelfAdmit', () => {
   it('returns false when other peers are connected (moderator cannot self-admit)', () => {
     expect(isOwnerSelfAdmit(basePayload, 'owner-123', true)).toBe(false)
   })
-
 })
 
 // ── ownerSelfAdmit ────────────────────────────────────────────────────────────
