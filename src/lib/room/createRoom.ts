@@ -24,13 +24,17 @@ export async function createRoom(): Promise<void> {
   const ownerId = crypto.randomUUID()
   const roomId = crypto.randomUUID()
 
-  const signingKP = await generateSigningKeyPair()
-  const oaepKP = await generateOaepKeyPair()
-  const roomKey = await generateRoomKey()
+  const [signingKP, oaepKP, roomKey] = await Promise.all([
+    generateSigningKeyPair(),
+    generateOaepKeyPair(),
+    generateRoomKey(),
+  ])
 
-  await saveSigningKeyPair(signingKP.privateKey, signingKP.publicKey, ownerId)
-  await saveOaepKeyPair(oaepKP.privateKey, oaepKP.publicKey, ownerId)
-  await saveRoomKey(roomKey, roomId)
+  await Promise.all([
+    saveSigningKeyPair(signingKP.privateKey, signingKP.publicKey, ownerId),
+    saveOaepKeyPair(oaepKP.privateKey, oaepKP.publicKey, ownerId),
+    saveRoomKey(roomKey, roomId),
+  ])
   savePeerId(ownerId)
 
   const token = await mintJWT(
