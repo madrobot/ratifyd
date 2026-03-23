@@ -9,7 +9,9 @@ const mockWebrtcProvider = {
   destroy: mockWebrtcDestroy,
 }
 // Must use `function` keyword so vitest treats it as a constructor
-const MockWebrtcProvider = vi.fn(function () { return mockWebrtcProvider })
+const MockWebrtcProvider = vi.fn(function () {
+  return mockWebrtcProvider
+})
 
 const mockIndexeddbDestroy = vi.fn()
 let resolveIndexeddbSynced: (() => void) | null = null
@@ -19,7 +21,9 @@ const mockIndexeddbProvider = {
     if (event === 'synced') resolveIndexeddbSynced = cb
   }),
 }
-const MockIndexeddbPersistence = vi.fn(function () { return mockIndexeddbProvider })
+const MockIndexeddbPersistence = vi.fn(function () {
+  return mockIndexeddbProvider
+})
 
 vi.mock('y-webrtc', () => ({
   WebrtcProvider: MockWebrtcProvider,
@@ -44,11 +48,9 @@ describe('initProviders', () => {
 
     initProviders(ydoc, roomId)
 
-    expect(MockWebrtcProvider).toHaveBeenCalledWith(
-      `${YJS_ROOM_PREFIX}${roomId}`,
-      ydoc,
-      { signaling: SIGNALING_SERVERS },
-    )
+    expect(MockWebrtcProvider).toHaveBeenCalledWith(`${YJS_ROOM_PREFIX}${roomId}`, ydoc, {
+      signaling: SIGNALING_SERVERS,
+    })
     ydoc.destroy()
   })
 
@@ -59,10 +61,7 @@ describe('initProviders', () => {
 
     initProviders(ydoc, roomId)
 
-    expect(MockIndexeddbPersistence).toHaveBeenCalledWith(
-      `${YJS_ROOM_PREFIX}${roomId}`,
-      ydoc,
-    )
+    expect(MockIndexeddbPersistence).toHaveBeenCalledWith(`${YJS_ROOM_PREFIX}${roomId}`, ydoc)
     ydoc.destroy()
   })
 
@@ -94,7 +93,9 @@ describe('initProviders', () => {
     const { indexeddbSynced } = initProviders(ydoc, 'room-3')
 
     let resolved = false
-    indexeddbSynced.then(() => { resolved = true })
+    indexeddbSynced.then(() => {
+      resolved = true
+    })
 
     expect(resolved).toBe(false)
     resolveIndexeddbSynced?.()

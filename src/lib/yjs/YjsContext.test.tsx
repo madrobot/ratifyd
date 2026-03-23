@@ -8,7 +8,9 @@ let resolveIndexeddbSynced: (() => void) | null = null
 
 const mockWebrtcProvider = { destroy: vi.fn() }
 // Must use `function` keyword so vitest treats it as a constructor
-const MockWebrtcProvider = vi.fn(function () { return mockWebrtcProvider })
+const MockWebrtcProvider = vi.fn(function () {
+  return mockWebrtcProvider
+})
 
 const mockIndexeddbProvider = {
   destroy: vi.fn(),
@@ -16,7 +18,9 @@ const mockIndexeddbProvider = {
     if (event === 'synced') resolveIndexeddbSynced = cb
   }),
 }
-const MockIndexeddbPersistence = vi.fn(function () { return mockIndexeddbProvider })
+const MockIndexeddbPersistence = vi.fn(function () {
+  return mockIndexeddbProvider
+})
 
 vi.mock('y-webrtc', () => ({
   WebrtcProvider: MockWebrtcProvider,
