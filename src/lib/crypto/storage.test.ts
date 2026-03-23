@@ -3,7 +3,6 @@ import {
   saveSigningKeyPair,
   loadSigningPrivateKey,
   loadSigningPublicKey,
-  loadSigningPublicKeyB64,
   saveOaepKeyPair,
   loadOaepPrivateKey,
   loadOaepPublicKeyB64,
@@ -11,11 +10,9 @@ import {
   loadRoomKey,
   savePeerId,
   loadPeerId,
-  saveGuestPeerId,
-  loadGuestPeerId,
 } from './storage'
-import { generateSigningKeyPair, exportSigningKey } from './signing'
-import { generateOaepKeyPair, exportOaepKey } from './oaep'
+import { generateSigningKeyPair, exportSigningPrivateKey, exportSigningPublicKey } from './signing'
+import { generateOaepKeyPair, exportOaepPublicKey, exportOaepPrivateKey } from './oaep'
 import { generateRoomKey, exportRoomKey } from './roomKey'
 
 beforeEach(() => {
@@ -29,8 +26,8 @@ describe('signing keypair storage', () => {
     await saveSigningKeyPair(pair.privateKey, pair.publicKey, 'peer-1')
     const loaded = await loadSigningPrivateKey('peer-1')
     expect(loaded).not.toBeNull()
-    const original = await exportSigningKey(pair.privateKey, 'private')
-    const reExported = await exportSigningKey(loaded!, 'private')
+    const original = await exportSigningPrivateKey(pair.privateKey)
+    const reExported = await exportSigningPrivateKey(loaded!)
     expect(reExported).toBe(original)
   })
 
@@ -39,27 +36,16 @@ describe('signing keypair storage', () => {
     await saveSigningKeyPair(pair.privateKey, pair.publicKey, 'peer-1')
     const loaded = await loadSigningPublicKey('peer-1')
     expect(loaded).not.toBeNull()
-    const original = await exportSigningKey(pair.publicKey, 'public')
-    const reExported = await exportSigningKey(loaded!, 'public')
+    const original = await exportSigningPublicKey(pair.publicKey)
+    const reExported = await exportSigningPublicKey(loaded!)
     expect(reExported).toBe(original)
-  })
-
-  it('loads signing public key as base64url string', async () => {
-    const pair = await generateSigningKeyPair()
-    await saveSigningKeyPair(pair.privateKey, pair.publicKey, 'peer-1')
-    const b64 = loadSigningPublicKeyB64('peer-1')
-    expect(b64).not.toBeNull()
-    const expected = await exportSigningKey(pair.publicKey, 'public')
-    expect(b64).toBe(expected)
   })
 
   it('returns null for non-existent peerId', async () => {
     const priv = await loadSigningPrivateKey('nonexistent')
     const pub = await loadSigningPublicKey('nonexistent')
-    const b64 = loadSigningPublicKeyB64('nonexistent')
     expect(priv).toBeNull()
     expect(pub).toBeNull()
-    expect(b64).toBeNull()
   })
 
   it('isolates keys by peerId', async () => {
@@ -67,9 +53,11 @@ describe('signing keypair storage', () => {
     const pair2 = await generateSigningKeyPair()
     await saveSigningKeyPair(pair1.privateKey, pair1.publicKey, 'peer-1')
     await saveSigningKeyPair(pair2.privateKey, pair2.publicKey, 'peer-2')
-    const pub1 = loadSigningPublicKeyB64('peer-1')
-    const pub2 = loadSigningPublicKeyB64('peer-2')
-    expect(pub1).not.toBe(pub2)
+    const pub1 = await loadSigningPublicKey('peer-1')
+    const pub2 = await loadSigningPublicKey('peer-2')
+    const pub1B64 = await exportSigningPublicKey(pub1!)
+    const pub2B64 = await exportSigningPublicKey(pub2!)
+    expect(pub1B64).not.toBe(pub2B64)
   })
 })
 
@@ -79,8 +67,8 @@ describe('OAEP keypair storage', () => {
     await saveOaepKeyPair(pair.privateKey, pair.publicKey, 'peer-1')
     const loaded = await loadOaepPrivateKey('peer-1')
     expect(loaded).not.toBeNull()
-    const original = await exportOaepKey(pair.privateKey, 'private')
-    const reExported = await exportOaepKey(loaded!, 'private')
+    const original = await exportOaepPrivateKey(pair.privateKey)
+    const reExported = await exportOaepPrivateKey(loaded!)
     expect(reExported).toBe(original)
   })
 
@@ -89,7 +77,7 @@ describe('OAEP keypair storage', () => {
     await saveOaepKeyPair(pair.privateKey, pair.publicKey, 'peer-1')
     const b64 = loadOaepPublicKeyB64('peer-1')
     expect(b64).not.toBeNull()
-    const expected = await exportOaepKey(pair.publicKey, 'public')
+    const expected = await exportOaepPublicKey(pair.publicKey)
     expect(b64).toBe(expected)
   })
 
@@ -141,23 +129,5 @@ describe('peer identity storage', () => {
     savePeerId('first')
     savePeerId('second')
     expect(loadPeerId()).toBe('second')
-  })
-})
-
-describe('guest peer identity (sessionStorage)', () => {
-  it('saves and loads a guest peerId', () => {
-    saveGuestPeerId('guest-123')
-    expect(loadGuestPeerId()).toBe('guest-123')
-  })
-
-  it('returns null when no guest peerId is saved', () => {
-    expect(loadGuestPeerId()).toBeNull()
-  })
-
-  it('is isolated from localStorage peerId', () => {
-    savePeerId('local-peer')
-    saveGuestPeerId('session-peer')
-    expect(loadPeerId()).toBe('local-peer')
-    expect(loadGuestPeerId()).toBe('session-peer')
   })
 })

@@ -37,7 +37,6 @@ export const SIGNALING_SERVERS: string[] = [
   'wss://y-webrtc-signaling-us.herokuapp.com',
 ]
 
-// localStorage keys — all keyed by peerId to support multiple sessions
 export const STORAGE_KEYS = {
   SIGN_PRIV: 'ratifyd:sign:priv',  // RSA signing private key
   SIGN_PUB:  'ratifyd:sign:pub',   // RSA signing public key
@@ -45,9 +44,4 @@ export const STORAGE_KEYS = {
   OAEP_PUB:  'ratifyd:oaep:pub',   // RSA-OAEP public key  (owner + moderators)
   ROOM_KEY:  'ratifyd:roomkey',    // AES-GCM room key     (owner + moderators)
   PEER_ID:   'ratifyd:peerId',     // Stable identity UUID
-} as const
-
-// sessionStorage keys — die on tab close
-export const SESSION_KEYS = {
-  GUEST_PEER_ID: 'ratifyd:guestPeerId',
 } as const

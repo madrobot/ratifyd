@@ -16,9 +16,12 @@ export async function generateOaepKeyPair(): Promise<CryptoKeyPair> {
   return crypto.subtle.generateKey(OAEP_ALGO, true, ['encrypt', 'decrypt'])
 }
 
-export async function exportOaepKey(key: CryptoKey, type: 'public' | 'private'): Promise<string> {
-  const fmt = type === 'public' ? 'spki' : 'pkcs8'
-  return bufferToBase64url(await crypto.subtle.exportKey(fmt, key))
+export async function exportOaepPublicKey(key: CryptoKey): Promise<string> {
+  return bufferToBase64url(await crypto.subtle.exportKey('spki', key))
+}
+
+export async function exportOaepPrivateKey(key: CryptoKey): Promise<string> {
+  return bufferToBase64url(await crypto.subtle.exportKey('pkcs8', key))
 }
 
 export async function importOaepPublicKey(b64: string): Promise<CryptoKey> {

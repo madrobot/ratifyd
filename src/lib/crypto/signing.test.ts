@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   generateSigningKeyPair,
-  exportSigningKey,
+  exportSigningPublicKey,
+  exportSigningPrivateKey,
   importSigningPublicKey,
   importSigningPrivateKey,
   signBytes,
@@ -64,47 +65,47 @@ describe('generateSigningKeyPair', () => {
   it('generates unique keypairs each time', async () => {
     const pair1 = await generateSigningKeyPair()
     const pair2 = await generateSigningKeyPair()
-    const pub1 = await exportSigningKey(pair1.publicKey, 'public')
-    const pub2 = await exportSigningKey(pair2.publicKey, 'public')
+    const pub1 = await exportSigningPublicKey(pair1.publicKey)
+    const pub2 = await exportSigningPublicKey(pair2.publicKey)
     expect(pub1).not.toBe(pub2)
   })
 })
 
-describe('exportSigningKey / importSigningPublicKey / importSigningPrivateKey', () => {
+describe('exportSigningPublicKey / exportSigningPrivateKey / importSigningPublicKey / importSigningPrivateKey', () => {
   it('round-trips a public key', async () => {
     const pair = await generateSigningKeyPair()
-    const exported = await exportSigningKey(pair.publicKey, 'public')
+    const exported = await exportSigningPublicKey(pair.publicKey)
     const imported = await importSigningPublicKey(exported)
-    const reExported = await exportSigningKey(imported, 'public')
+    const reExported = await exportSigningPublicKey(imported)
     expect(reExported).toBe(exported)
   })
 
   it('round-trips a private key', async () => {
     const pair = await generateSigningKeyPair()
-    const exported = await exportSigningKey(pair.privateKey, 'private')
+    const exported = await exportSigningPrivateKey(pair.privateKey)
     const imported = await importSigningPrivateKey(exported)
-    const reExported = await exportSigningKey(imported, 'private')
+    const reExported = await exportSigningPrivateKey(imported)
     expect(reExported).toBe(exported)
   })
 
   it('exported keys are base64url strings', async () => {
     const pair = await generateSigningKeyPair()
-    const pubB64 = await exportSigningKey(pair.publicKey, 'public')
-    const privB64 = await exportSigningKey(pair.privateKey, 'private')
+    const pubB64 = await exportSigningPublicKey(pair.publicKey)
+    const privB64 = await exportSigningPrivateKey(pair.privateKey)
     expect(pubB64).not.toMatch(/[+/=]/)
     expect(privB64).not.toMatch(/[+/=]/)
   })
 
   it('imported public key retains verify usage', async () => {
     const pair = await generateSigningKeyPair()
-    const exported = await exportSigningKey(pair.publicKey, 'public')
+    const exported = await exportSigningPublicKey(pair.publicKey)
     const imported = await importSigningPublicKey(exported)
     expect(imported.usages).toContain('verify')
   })
 
   it('imported private key retains sign usage', async () => {
     const pair = await generateSigningKeyPair()
-    const exported = await exportSigningKey(pair.privateKey, 'private')
+    const exported = await exportSigningPrivateKey(pair.privateKey)
     const imported = await importSigningPrivateKey(exported)
     expect(imported.usages).toContain('sign')
   })
@@ -157,8 +158,8 @@ describe('signBytes / verifySignature', () => {
 
   it('works with re-imported keys', async () => {
     const pair = await generateSigningKeyPair()
-    const privB64 = await exportSigningKey(pair.privateKey, 'private')
-    const pubB64 = await exportSigningKey(pair.publicKey, 'public')
+    const privB64 = await exportSigningPrivateKey(pair.privateKey)
+    const pubB64 = await exportSigningPublicKey(pair.publicKey)
     const importedPriv = await importSigningPrivateKey(privB64)
     const importedPub = await importSigningPublicKey(pubB64)
     const sig = await signBytes(importedPriv, 'round-trip test')

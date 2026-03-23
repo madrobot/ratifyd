@@ -10,9 +10,12 @@ export async function generateSigningKeyPair(): Promise<CryptoKeyPair> {
   return crypto.subtle.generateKey(SIGN_ALGO, true, ['sign', 'verify'])
 }
 
-export async function exportSigningKey(key: CryptoKey, type: 'public' | 'private'): Promise<string> {
-  const fmt = type === 'public' ? 'spki' : 'pkcs8'
-  return bufferToBase64url(await crypto.subtle.exportKey(fmt, key))
+export async function exportSigningPublicKey(key: CryptoKey): Promise<string> {
+  return bufferToBase64url(await crypto.subtle.exportKey('spki', key))
+}
+
+export async function exportSigningPrivateKey(key: CryptoKey): Promise<string> {
+  return bufferToBase64url(await crypto.subtle.exportKey('pkcs8', key))
 }
 
 export async function importSigningPublicKey(b64: string): Promise<CryptoKey> {

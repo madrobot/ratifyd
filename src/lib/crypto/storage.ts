@@ -1,7 +1,7 @@
-import { exportSigningKey, importSigningPrivateKey, importSigningPublicKey } from './signing'
-import { exportOaepKey, importOaepPrivateKey } from './oaep'
+import { exportSigningPrivateKey, exportSigningPublicKey, importSigningPrivateKey, importSigningPublicKey } from './signing'
+import { exportOaepPrivateKey, exportOaepPublicKey, importOaepPrivateKey } from './oaep'
 import { exportRoomKey, importRoomKey } from './roomKey'
-import { STORAGE_KEYS, SESSION_KEYS } from '../../constants'
+import { STORAGE_KEYS } from '../../constants'
 
 // --- Signing keypair ---
 
@@ -10,8 +10,8 @@ export async function saveSigningKeyPair(
   publicKey: CryptoKey,
   peerId: string,
 ): Promise<void> {
-  localStorage.setItem(`${STORAGE_KEYS.SIGN_PRIV}:${peerId}`, await exportSigningKey(privateKey, 'private'))
-  localStorage.setItem(`${STORAGE_KEYS.SIGN_PUB}:${peerId}`,  await exportSigningKey(publicKey, 'public'))
+  localStorage.setItem(`${STORAGE_KEYS.SIGN_PRIV}:${peerId}`, await exportSigningPrivateKey(privateKey))
+  localStorage.setItem(`${STORAGE_KEYS.SIGN_PUB}:${peerId}`,  await exportSigningPublicKey(publicKey))
 }
 
 export async function loadSigningPrivateKey(peerId: string): Promise<CryptoKey | null> {
@@ -24,10 +24,6 @@ export async function loadSigningPublicKey(peerId: string): Promise<CryptoKey | 
   return b64 ? importSigningPublicKey(b64) : null
 }
 
-export function loadSigningPublicKeyB64(peerId: string): string | null {
-  return localStorage.getItem(`${STORAGE_KEYS.SIGN_PUB}:${peerId}`)
-}
-
 // --- OAEP keypair (owner + moderators only) ---
 
 export async function saveOaepKeyPair(
@@ -35,8 +31,8 @@ export async function saveOaepKeyPair(
   publicKey: CryptoKey,
   peerId: string,
 ): Promise<void> {
-  localStorage.setItem(`${STORAGE_KEYS.OAEP_PRIV}:${peerId}`, await exportOaepKey(privateKey, 'private'))
-  localStorage.setItem(`${STORAGE_KEYS.OAEP_PUB}:${peerId}`,  await exportOaepKey(publicKey, 'public'))
+  localStorage.setItem(`${STORAGE_KEYS.OAEP_PRIV}:${peerId}`, await exportOaepPrivateKey(privateKey))
+  localStorage.setItem(`${STORAGE_KEYS.OAEP_PUB}:${peerId}`,  await exportOaepPublicKey(publicKey))
 }
 
 export async function loadOaepPrivateKey(peerId: string): Promise<CryptoKey | null> {
@@ -67,13 +63,4 @@ export function savePeerId(peerId: string): void {
 
 export function loadPeerId(): string | null {
   return localStorage.getItem(STORAGE_KEYS.PEER_ID)
-}
-
-/** Guest peer ID lives in sessionStorage — survives reload, dies on tab close. */
-export function saveGuestPeerId(peerId: string): void {
-  sessionStorage.setItem(SESSION_KEYS.GUEST_PEER_ID, peerId)
-}
-
-export function loadGuestPeerId(): string | null {
-  return sessionStorage.getItem(SESSION_KEYS.GUEST_PEER_ID)
 }

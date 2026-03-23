@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   generateOaepKeyPair,
-  exportOaepKey,
+  exportOaepPublicKey,
+  exportOaepPrivateKey,
   importOaepPublicKey,
   importOaepPrivateKey,
   wrapRoomKey,
@@ -31,47 +32,47 @@ describe('generateOaepKeyPair', () => {
   it('generates unique keypairs each time', async () => {
     const pair1 = await generateOaepKeyPair()
     const pair2 = await generateOaepKeyPair()
-    const pub1 = await exportOaepKey(pair1.publicKey, 'public')
-    const pub2 = await exportOaepKey(pair2.publicKey, 'public')
+    const pub1 = await exportOaepPublicKey(pair1.publicKey)
+    const pub2 = await exportOaepPublicKey(pair2.publicKey)
     expect(pub1).not.toBe(pub2)
   })
 })
 
-describe('exportOaepKey / importOaepPublicKey / importOaepPrivateKey', () => {
+describe('exportOaepPublicKey / exportOaepPrivateKey / importOaepPublicKey / importOaepPrivateKey', () => {
   it('round-trips a public key', async () => {
     const pair = await generateOaepKeyPair()
-    const exported = await exportOaepKey(pair.publicKey, 'public')
+    const exported = await exportOaepPublicKey(pair.publicKey)
     const imported = await importOaepPublicKey(exported)
-    const reExported = await exportOaepKey(imported, 'public')
+    const reExported = await exportOaepPublicKey(imported)
     expect(reExported).toBe(exported)
   })
 
   it('round-trips a private key', async () => {
     const pair = await generateOaepKeyPair()
-    const exported = await exportOaepKey(pair.privateKey, 'private')
+    const exported = await exportOaepPrivateKey(pair.privateKey)
     const imported = await importOaepPrivateKey(exported)
-    const reExported = await exportOaepKey(imported, 'private')
+    const reExported = await exportOaepPrivateKey(imported)
     expect(reExported).toBe(exported)
   })
 
   it('exported keys are base64url strings', async () => {
     const pair = await generateOaepKeyPair()
-    const pubB64 = await exportOaepKey(pair.publicKey, 'public')
-    const privB64 = await exportOaepKey(pair.privateKey, 'private')
+    const pubB64 = await exportOaepPublicKey(pair.publicKey)
+    const privB64 = await exportOaepPrivateKey(pair.privateKey)
     expect(pubB64).not.toMatch(/[+/=]/)
     expect(privB64).not.toMatch(/[+/=]/)
   })
 
   it('imported public key retains encrypt usage', async () => {
     const pair = await generateOaepKeyPair()
-    const exported = await exportOaepKey(pair.publicKey, 'public')
+    const exported = await exportOaepPublicKey(pair.publicKey)
     const imported = await importOaepPublicKey(exported)
     expect(imported.usages).toContain('encrypt')
   })
 
   it('imported private key retains decrypt usage', async () => {
     const pair = await generateOaepKeyPair()
-    const exported = await exportOaepKey(pair.privateKey, 'private')
+    const exported = await exportOaepPrivateKey(pair.privateKey)
     const imported = await importOaepPrivateKey(exported)
     expect(imported.usages).toContain('decrypt')
   })
@@ -131,8 +132,8 @@ describe('wrapRoomKey / unwrapRoomKey', () => {
 
   it('works with re-imported OAEP keys', async () => {
     const oaepPair = await generateOaepKeyPair()
-    const pubB64 = await exportOaepKey(oaepPair.publicKey, 'public')
-    const privB64 = await exportOaepKey(oaepPair.privateKey, 'private')
+    const pubB64 = await exportOaepPublicKey(oaepPair.publicKey)
+    const privB64 = await exportOaepPrivateKey(oaepPair.privateKey)
     const importedPub = await importOaepPublicKey(pubB64)
     const importedPriv = await importOaepPrivateKey(privB64)
     const roomKey = await generateRoomKey()

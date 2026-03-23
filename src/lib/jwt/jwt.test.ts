@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mintJWT, decodeJWT, verifyJWT } from './index'
-import { generateSigningKeyPair, exportSigningKey, importSigningPublicKey } from '../crypto/signing'
+import { generateSigningKeyPair, exportSigningPublicKey, importSigningPublicKey } from '../crypto/signing'
 import { ROLES } from '../../constants'
 import type { JWTPayload } from '../../constants'
 
-const makePayload = (overrides?: Partial<Omit<JWTPayload, 'iat' | 'exp'>>) => ({
+const makePayload = (overrides?: Partial<Omit<JWTPayload, 'iat' | 'exp' | 'jti'>>) => ({
   room: 'test-room',
   role: ROLES.OWNER,
   iss: 'peer-123',
-  jti: 'unique-id-1',
   ...overrides,
 })
 
@@ -20,7 +19,8 @@ describe('mintJWT', () => {
     expect(token.payload.room).toBe('test-room')
     expect(token.payload.role).toBe('owner')
     expect(token.payload.iss).toBe('peer-123')
-    expect(token.payload.jti).toBe('unique-id-1')
+    expect(typeof token.payload.jti).toBe('string')
+    expect(token.payload.jti.length).toBeGreaterThan(0)
     expect(typeof token.payload.iat).toBe('number')
     expect(typeof token.payload.exp).toBe('number')
     expect(typeof token.signature).toBe('string')
@@ -54,6 +54,13 @@ describe('mintJWT', () => {
     expect(token.payload.exp - token.payload.iat).toBe(86400)
   })
 
+  it('generates unique jti each time', async () => {
+    const pair = await generateSigningKeyPair()
+    const token1 = await mintJWT(makePayload(), pair.privateKey)
+    const token2 = await mintJWT(makePayload(), pair.privateKey)
+    expect(token1.payload.jti).not.toBe(token2.payload.jti)
+  })
+
   it('preserves all roles correctly', async () => {
     const pair = await generateSigningKeyPair()
     for (const role of [ROLES.OWNER, ROLES.MODERATOR, ROLES.GUEST]) {
@@ -72,7 +79,7 @@ describe('decodeJWT', () => {
     expect(decoded.payload.room).toBe('test-room')
     expect(decoded.payload.role).toBe('owner')
     expect(decoded.payload.iss).toBe('peer-123')
-    expect(decoded.payload.jti).toBe('unique-id-1')
+    expect(typeof decoded.payload.jti).toBe('string')
   })
 
   it('returns a ClaimToken with raw field matching input', async () => {
@@ -82,16 +89,20 @@ describe('decodeJWT', () => {
     expect(decoded.raw).toBe(token.raw)
   })
 
-  it('throws on malformed token', () => {
+  it('throws on malformed token (garbage string)', () => {
     expect(() => decodeJWT('not-a-jwt')).toThrow()
+  })
+
+  it('throws on wrong number of parts', () => {
+    expect(() => decodeJWT('only.two')).toThrow()
   })
 })
 
 describe('verifyJWT', () => {
-  it('verifies a valid token from raw string', async () => {
+  it('verifies a valid ClaimToken', async () => {
     const pair = await generateSigningKeyPair()
     const token = await mintJWT(makePayload(), pair.privateKey)
-    const result = await verifyJWT(token.raw, pair.publicKey)
+    const result = await verifyJWT(token, pair.publicKey)
     expect(result.valid).toBe(true)
     if (result.valid) {
       expect(result.payload.room).toBe('test-room')
@@ -99,23 +110,14 @@ describe('verifyJWT', () => {
     }
   })
 
-  it('verifies a valid ClaimToken object', async () => {
-    const pair = await generateSigningKeyPair()
-    const token = await mintJWT(makePayload(), pair.privateKey)
-    const result = await verifyJWT(token, pair.publicKey)
-    expect(result.valid).toBe(true)
-  })
-
   it('returns INVALID_SIGNATURE for tampered payload', async () => {
     const pair = await generateSigningKeyPair()
     const token = await mintJWT(makePayload(), pair.privateKey)
-    // Tamper with the payload part
     const parts = token.raw.split('.')
-    // Decode payload, modify, re-encode
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
     payload.role = 'guest'
     const tamperedPayload = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
-    const tampered = `${parts[0]}.${tamperedPayload}.${parts[2]}`
+    const tampered = decodeJWT(`${parts[0]}.${tamperedPayload}.${parts[2]}`)
     const result = await verifyJWT(tampered, pair.publicKey)
     expect(result.valid).toBe(false)
     if (!result.valid) {
@@ -128,7 +130,7 @@ describe('verifyJWT', () => {
     const pair1 = await generateSigningKeyPair()
     const pair2 = await generateSigningKeyPair()
     const token = await mintJWT(makePayload(), pair1.privateKey)
-    const result = await verifyJWT(token.raw, pair2.publicKey)
+    const result = await verifyJWT(token, pair2.publicKey)
     expect(result.valid).toBe(false)
     if (!result.valid) {
       expect(result.reason).toBe('INVALID_SIGNATURE')
@@ -137,12 +139,10 @@ describe('verifyJWT', () => {
 
   it('returns TOKEN_EXPIRED for expired token', async () => {
     const pair = await generateSigningKeyPair()
-    // Mint with 1-second expiry
     const token = await mintJWT(makePayload(), pair.privateKey, 1)
-    // Fast-forward time by 2 seconds
     vi.useFakeTimers()
     vi.setSystemTime(Date.now() + 2000)
-    const result = await verifyJWT(token.raw, pair.publicKey)
+    const result = await verifyJWT(token, pair.publicKey)
     vi.useRealTimers()
     expect(result.valid).toBe(false)
     if (!result.valid) {
@@ -150,30 +150,12 @@ describe('verifyJWT', () => {
     }
   })
 
-  it('returns MALFORMED_TOKEN for garbage input', async () => {
-    const pair = await generateSigningKeyPair()
-    const result = await verifyJWT('not.a.jwt', pair.publicKey)
-    expect(result.valid).toBe(false)
-    if (!result.valid) {
-      expect(result.reason).toBe('MALFORMED_TOKEN')
-    }
-  })
-
-  it('returns MALFORMED_TOKEN for wrong number of parts', async () => {
-    const pair = await generateSigningKeyPair()
-    const result = await verifyJWT('only.two', pair.publicKey)
-    expect(result.valid).toBe(false)
-    if (!result.valid) {
-      expect(result.reason).toBe('MALFORMED_TOKEN')
-    }
-  })
-
   it('works with re-imported public key', async () => {
     const pair = await generateSigningKeyPair()
-    const pubB64 = await exportSigningKey(pair.publicKey, 'public')
+    const pubB64 = await exportSigningPublicKey(pair.publicKey)
     const importedPub = await importSigningPublicKey(pubB64)
     const token = await mintJWT(makePayload(), pair.privateKey)
-    const result = await verifyJWT(token.raw, importedPub)
+    const result = await verifyJWT(token, importedPub)
     expect(result.valid).toBe(true)
   })
 
@@ -181,7 +163,7 @@ describe('verifyJWT', () => {
     const pair = await generateSigningKeyPair()
     for (const role of [ROLES.OWNER, ROLES.MODERATOR, ROLES.GUEST]) {
       const token = await mintJWT(makePayload({ role }), pair.privateKey)
-      const result = await verifyJWT(token.raw, pair.publicKey)
+      const result = await verifyJWT(token, pair.publicKey)
       expect(result.valid).toBe(true)
       if (result.valid) {
         expect(result.payload.role).toBe(role)
