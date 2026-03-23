@@ -5,6 +5,7 @@
 - Always use PNPM over NPM
 - Always write comprehensive and hollistic unit and functional tests
 - Always ensure the `gh` CLI is installed and authorized
+- Always put Claude as sole-author on commits, unless user asks for specific changes, then use Claude as co-author
 
 ## Pull Requests
 - Always author pull requests using the Claude Github App as the author
