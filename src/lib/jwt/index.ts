@@ -19,13 +19,14 @@ function decodeB64url<T>(str: string): T {
  * The jti is generated automatically.
  */
 export async function mintJWT(
-  payload: Omit<JWTPayload, 'iat' | 'exp' | 'jti'>,
+  payload: Omit<JWTPayload, 'iat' | 'exp' | 'jti' | 'iss'>,
+  issuerId: string,
   signingPrivateKey: CryptoKey,
   expirySeconds = 86400,
 ): Promise<ClaimToken> {
   const now        = Math.floor(Date.now() / 1000)
   const header: JWTHeader = { alg: 'RS256', typ: 'JWT' }
-  const fullPayload: JWTPayload = { ...payload, jti: crypto.randomUUID(), iat: now, exp: now + expirySeconds }
+  const fullPayload: JWTPayload = { ...payload, iss: issuerId, jti: crypto.randomUUID(), iat: now, exp: now + expirySeconds }
   const headerB64  = encodeB64url(header)
   const payloadB64 = encodeB64url(fullPayload)
   const input      = `${headerB64}.${payloadB64}`
