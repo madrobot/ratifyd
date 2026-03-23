@@ -10,9 +10,11 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-24.04-arm
-    container: node:24-alpine
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - run: corepack enable && corepack prepare pnpm@latest --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
