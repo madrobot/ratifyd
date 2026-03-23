@@ -7,42 +7,15 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    container: node:24-alpine
-    steps:
-      - uses: actions/checkout@v6
-      - run: corepack enable && corepack prepare pnpm@latest --activate
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
+  ci:
+    name: CI
+    runs-on: ubuntu-24.04-arm
     container: node:24-alpine
     steps:
       - uses: actions/checkout@v6
       - run: corepack enable && corepack prepare pnpm@latest --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    container: node:24-alpine
-    steps:
-      - uses: actions/checkout@v6
-      - run: corepack enable && corepack prepare pnpm@latest --activate
-      - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
-
-  format:
-    name: Format
-    runs-on: ubuntu-latest
-    container: node:24-alpine
-    steps:
-      - uses: actions/checkout@v6
-      - run: corepack enable && corepack prepare pnpm@latest --activate
-      - run: pnpm install --frozen-lockfile
       - run: pnpm run format:check
+      - run: pnpm test
