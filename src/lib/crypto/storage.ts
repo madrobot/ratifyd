@@ -69,6 +69,10 @@ export async function loadRoomKey(roomId: string): Promise<CryptoKey | null> {
   return b64 ? importRoomKey(b64) : null
 }
 
+export function loadSigningPublicKeyB64(peerId: string): string | null {
+  return localStorage.getItem(`${STORAGE_KEYS.SIGN_PUB}:${peerId}`)
+}
+
 // --- Peer identity ---
 
 export function savePeerId(peerId: string): void {
@@ -77,4 +81,12 @@ export function savePeerId(peerId: string): void {
 
 export function loadPeerId(): string | null {
   return localStorage.getItem(STORAGE_KEYS.PEER_ID)
+}
+
+export function saveGuestPeerId(peerId: string): void {
+  localStorage.setItem(STORAGE_KEYS.GUEST_PEER_ID, peerId)
+}
+
+export function loadGuestPeerId(): string | null {
+  return localStorage.getItem(STORAGE_KEYS.GUEST_PEER_ID)
 }
