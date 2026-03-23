@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createRoom } from './createRoom'
-import { loadPeerId, loadSigningPrivateKey, loadSigningPublicKey, loadOaepPrivateKey, loadOaepPublicKeyB64, loadRoomKey } from '../crypto/storage'
+import {
+  loadPeerId,
+  loadSigningPrivateKey,
+  loadSigningPublicKey,
+  loadOaepPrivateKey,
+  loadOaepPublicKeyB64,
+  loadRoomKey,
+} from '../crypto/storage'
 import { ROLES, JWT_EXPIRY_SECONDS, STORAGE_KEYS } from '../../constants'
 
 function parseFragment(): { token: string | null } {
@@ -49,9 +56,7 @@ describe('createRoom', () => {
     expect(typeof payload.room).toBe('string')
     expect((payload.room as string).length).toBeGreaterThan(0)
     // UUID format
-    expect(payload.room).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    )
+    expect(payload.room).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
   })
 
   it('JWT payload iss matches the saved peerId', async () => {
