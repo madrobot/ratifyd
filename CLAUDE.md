@@ -20,6 +20,6 @@
 
 ## Knowledge Base
 
-- Whenever you work on this code base, always read the `docs/ratifyd-adr.md`
-- If you make changes to the architecture of the app, always make necessary changes to `docs/ratifyd-adr.md`
-- When asked to implement a Phase _X_ of the implementation plan, refer to `docs/ratifyd-implementation-plan.md`
+- Whenever you work on this code base, always read the `docs/plans/ratifyd-adr.md`
+- If you make changes to the architecture of the app, always make necessary changes to `docs/plans/ratifyd-adr.md`
+- When asked to implement a Phase _X_ of the implementation plan, refer to `docs/plans/ratifyd-implementation-plan.md`
