@@ -136,7 +136,10 @@ describe('encryptWithRoomKey / decryptWithRoomKey', () => {
     // Flip multiple bytes in the ciphertext to reliably break GCM authentication
     const tampered: EncryptedBlob = {
       iv: blob.iv,
-      ciphertext: blob.ciphertext.split('').map((c, i) => i < 10 ? (c === 'A' ? 'B' : 'A') : c).join(''),
+      ciphertext: blob.ciphertext
+        .split('')
+        .map((c, i) => (i < 10 ? (c === 'A' ? 'B' : 'A') : c))
+        .join(''),
     }
     await expect(decryptWithRoomKey(tampered, key)).rejects.toThrow()
   })

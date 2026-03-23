@@ -37,7 +37,7 @@ export async function importOaepPrivateKey(b64: string): Promise<CryptoKey> {
  * Called by the owner in Round 4 of the admission handshake.
  */
 export async function wrapRoomKey(roomKey: CryptoKey, oaepPublicKey: CryptoKey): Promise<string> {
-  const rawKey  = await crypto.subtle.exportKey('raw', roomKey)
+  const rawKey = await crypto.subtle.exportKey('raw', roomKey)
   const wrapped = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, oaepPublicKey, rawKey)
   return bufferToBase64url(wrapped)
 }
@@ -46,8 +46,11 @@ export async function wrapRoomKey(roomKey: CryptoKey, oaepPublicKey: CryptoKey):
  * Unwraps the AES-GCM room key using this moderator's RSA-OAEP private key.
  * Called by a moderator after receiving the wrapped key from the owner.
  */
-export async function unwrapRoomKey(wrappedKeyB64: string, oaepPrivateKey: CryptoKey): Promise<CryptoKey> {
+export async function unwrapRoomKey(
+  wrappedKeyB64: string,
+  oaepPrivateKey: CryptoKey,
+): Promise<CryptoKey> {
   const wrapped = base64urlToBuffer(wrappedKeyB64)
-  const rawKey  = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, oaepPrivateKey, wrapped)
+  const rawKey = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, oaepPrivateKey, wrapped)
   return crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt'])
 }

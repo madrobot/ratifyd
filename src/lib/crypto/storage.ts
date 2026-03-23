@@ -1,4 +1,9 @@
-import { exportSigningPrivateKey, exportSigningPublicKey, importSigningPrivateKey, importSigningPublicKey } from './signing'
+import {
+  exportSigningPrivateKey,
+  exportSigningPublicKey,
+  importSigningPrivateKey,
+  importSigningPublicKey,
+} from './signing'
 import { exportOaepPrivateKey, exportOaepPublicKey, importOaepPrivateKey } from './oaep'
 import { exportRoomKey, importRoomKey } from './roomKey'
 import { STORAGE_KEYS } from '../../constants'
@@ -10,8 +15,14 @@ export async function saveSigningKeyPair(
   publicKey: CryptoKey,
   peerId: string,
 ): Promise<void> {
-  localStorage.setItem(`${STORAGE_KEYS.SIGN_PRIV}:${peerId}`, await exportSigningPrivateKey(privateKey))
-  localStorage.setItem(`${STORAGE_KEYS.SIGN_PUB}:${peerId}`,  await exportSigningPublicKey(publicKey))
+  localStorage.setItem(
+    `${STORAGE_KEYS.SIGN_PRIV}:${peerId}`,
+    await exportSigningPrivateKey(privateKey),
+  )
+  localStorage.setItem(
+    `${STORAGE_KEYS.SIGN_PUB}:${peerId}`,
+    await exportSigningPublicKey(publicKey),
+  )
 }
 
 export async function loadSigningPrivateKey(peerId: string): Promise<CryptoKey | null> {
@@ -31,8 +42,11 @@ export async function saveOaepKeyPair(
   publicKey: CryptoKey,
   peerId: string,
 ): Promise<void> {
-  localStorage.setItem(`${STORAGE_KEYS.OAEP_PRIV}:${peerId}`, await exportOaepPrivateKey(privateKey))
-  localStorage.setItem(`${STORAGE_KEYS.OAEP_PUB}:${peerId}`,  await exportOaepPublicKey(publicKey))
+  localStorage.setItem(
+    `${STORAGE_KEYS.OAEP_PRIV}:${peerId}`,
+    await exportOaepPrivateKey(privateKey),
+  )
+  localStorage.setItem(`${STORAGE_KEYS.OAEP_PUB}:${peerId}`, await exportOaepPublicKey(publicKey))
 }
 
 export async function loadOaepPrivateKey(peerId: string): Promise<CryptoKey | null> {

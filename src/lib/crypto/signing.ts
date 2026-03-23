@@ -27,7 +27,10 @@ export async function importSigningPrivateKey(b64: string): Promise<CryptoKey> {
 }
 
 /** Signs arbitrary bytes with the private key. Used for nonce signing during admission. */
-export async function signBytes(privateKey: CryptoKey, data: string | ArrayBuffer): Promise<ArrayBuffer> {
+export async function signBytes(
+  privateKey: CryptoKey,
+  data: string | ArrayBuffer,
+): Promise<ArrayBuffer> {
   const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data
   return crypto.subtle.sign({ name: 'RSASSA-PKCS1-v1_5' }, privateKey, bytes)
 }
@@ -46,7 +49,9 @@ export async function verifySignature(
 export function generateNonce(): string {
   const b = new Uint8Array(32)
   crypto.getRandomValues(b)
-  return Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('')
+  return Array.from(b)
+    .map((x) => x.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 // --- Encoding helpers (shared across all crypto modules) ---
@@ -59,10 +64,10 @@ export function bufferToBase64url(buf: ArrayBuffer): string {
 }
 
 export function base64urlToBuffer(b64url: string): ArrayBuffer {
-  const b64    = b64url.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=')
-  const str    = atob(padded)
-  const buf    = new Uint8Array(str.length)
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=')
+  const str = atob(padded)
+  const buf = new Uint8Array(str.length)
   for (let i = 0; i < str.length; i++) buf[i] = str.charCodeAt(i)
   return buf.buffer
 }

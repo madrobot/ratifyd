@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mintJWT, decodeJWT, verifyJWT } from './index'
-import { generateSigningKeyPair, exportSigningPublicKey, importSigningPublicKey } from '../crypto/signing'
+import {
+  generateSigningKeyPair,
+  exportSigningPublicKey,
+  importSigningPublicKey,
+} from '../crypto/signing'
 import { ROLES } from '../../constants'
 import type { JWTPayload } from '../../constants'
 
@@ -117,7 +121,10 @@ describe('verifyJWT', () => {
     const parts = token.raw.split('.')
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
     payload.role = 'guest'
-    const tamperedPayload = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+    const tamperedPayload = btoa(JSON.stringify(payload))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '')
     const tampered = decodeJWT(`${parts[0]}.${tamperedPayload}.${parts[2]}`)
     const result = await verifyJWT(tampered, pair.publicKey)
     expect(result.valid).toBe(false)
