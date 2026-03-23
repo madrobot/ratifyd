@@ -19,6 +19,9 @@ jobs:
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
 
     runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.draft == false &&
+      github.actor == 'madrobot'
     permissions:
       contents: read
       pull-requests: read
