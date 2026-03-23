@@ -13,6 +13,7 @@
 
 - Always author pull requests using the Claude Github App as the author
 - Always write full and meangingful descriptions on pull requests
+- Always run the build, lint and format scripts from `package.json` and run all unit and functional tests
 
 ## Getting Started
 
