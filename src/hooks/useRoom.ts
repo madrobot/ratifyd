@@ -20,7 +20,9 @@ export function useRoom(token: string | null): { room: Room | null; status: Room
         r = joined
         setRoom(r)
         setStatus(r.status)
-        r.on('status', setStatus as (...args: unknown[]) => void)
+        // Capture the cast to a stable reference — same object for on() and off()
+        const statusHandler = setStatus as (...args: unknown[]) => void
+        r.on('status', statusHandler)
       })
       .catch(() => {
         if (!cancelled) setStatus('error')
@@ -28,8 +30,13 @@ export function useRoom(token: string | null): { room: Room | null; status: Room
 
     return () => {
       cancelled = true
-      r?.destroy()
+      if (r) {
+        const statusHandler = setStatus as (...args: unknown[]) => void
+        r.off('status', statusHandler)
+        r.destroy()
+      }
       setRoom(null)
+      setStatus('connecting')
     }
   }, [token])
 

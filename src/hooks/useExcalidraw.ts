@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import type { Room } from '../lib/Room'
 
 // Minimal Excalidraw types (avoid importing the full package in hooks)
@@ -23,8 +23,12 @@ export function useExcalidraw(room: Room | null) {
     }
   }, [room])
 
+  const onChange = useCallback((elements: unknown[]) => {
+    bindingRef.current?.onChange(elements as unknown as readonly never[])
+  }, []) // bindingRef is a ref (stable), so empty deps is correct
+
   return {
     excalidrawRef: apiRef,
-    onChange: (elements: unknown[]) => bindingRef.current?.onChange(elements as readonly never[]),
+    onChange,
   }
 }

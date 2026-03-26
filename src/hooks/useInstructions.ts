@@ -16,8 +16,10 @@ export function useInstructions(room: Room | null) {
       })
 
     // Real-time updates
-    room.on('instructions', setInstructions as (...args: unknown[]) => void)
-    return () => room.off('instructions', setInstructions as (...args: unknown[]) => void)
+    // Capture the cast to a stable reference — same object for on() and off()
+    const handler = setInstructions as (...args: unknown[]) => void
+    room.on('instructions', handler)
+    return () => room.off('instructions', handler)
   }, [room])
 
   const update = useCallback(
