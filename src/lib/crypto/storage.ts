@@ -60,10 +60,12 @@ export function loadOaepPublicKeyB64(peerId: string): string | null {
 
 // --- AES-GCM room key (owner + moderators only) ---
 
+// DEPRECATED: Use Identity.saveRoomKey / Identity.loadRoomKey instead. Will be removed in Task 5 cleanup.
 export async function saveRoomKey(roomKey: CryptoKey, roomId: string): Promise<void> {
   localStorage.setItem(`${STORAGE_KEYS.ROOM_KEY}:${roomId}`, await exportRoomKey(roomKey))
 }
 
+// DEPRECATED: Use Identity.saveRoomKey / Identity.loadRoomKey instead. Will be removed in Task 5 cleanup.
 export async function loadRoomKey(roomId: string): Promise<CryptoKey | null> {
   const b64 = localStorage.getItem(`${STORAGE_KEYS.ROOM_KEY}:${roomId}`)
   return b64 ? importRoomKey(b64) : null

@@ -1,6 +1,3 @@
-export class RoomError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'RoomError'
-  }
-}
+import { AppError } from './AppError'
+
+export class RoomError extends AppError {}

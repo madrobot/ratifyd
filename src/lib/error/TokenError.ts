@@ -1,5 +1,3 @@
-export class TokenError extends Error {
-  constructor(message: string) {
-    super(message)
-  }
-}
+import { AppError } from './AppError'
+
+export class TokenError extends AppError {}

@@ -1,5 +1,3 @@
-export class IdentityError extends Error {
-  constructor(message: string) {
-    super(message)
-  }
-}
+import { AppError } from './AppError'
+
+export class IdentityError extends AppError {}

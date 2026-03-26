@@ -195,11 +195,9 @@ describe('mintClaim', () => {
     expect(claim.expiry).toBeGreaterThan(now)
   })
 
-  it('mintClaim throws IdentityError if signing key pair is missing', async () => {
-    // Load an identity with no signing key pair by directly constructing via load with missing data
-    // The only way to get an identity without a signing key is via internal constructor —
-    // Identity.create always generates a signing key pair, so we test the guard indirectly
-    // by confirming a freshly created identity can always mint.
+  it('mintClaim resolves for a freshly created identity that always has a signing key pair', async () => {
+    // Identity.create always generates a signing key pair, so mintClaim always succeeds here.
+    // The IdentityError guard for a missing signing key pair cannot be reached via the public API.
     const identity = await Identity.create('owner')
     await expect(
       identity.mintClaim(identity.id, 'room-xyz', ROLES.OWNER, 'issuer'),

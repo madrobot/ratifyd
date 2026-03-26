@@ -181,17 +181,14 @@ export class Identity {
   async mintClaim(sub: string, room: string, role: Role, iss: string): Promise<Claim> {
     if (!this.#signingKeyPair)
       throw new IdentityError('Cannot mint claim: signing key pair not present')
-    return Claim.mint(
-      sub,
-      room,
-      role,
-      iss,
-      this.#signingKeyPair.publicKey,
-      this.#signingKeyPair.privateKey,
+    return Claim.mint(sub, room, role, iss, this.#signingKeyPair.publicKey, (data) =>
+      this.sign(data),
     )
   }
 
   async wrapRoomKey(roomKey: CryptoKey, recipientOaepPublicKey: CryptoKey): Promise<string> {
+    if (recipientOaepPublicKey.algorithm.name !== 'RSA-OAEP')
+      throw new IdentityError('recipientOaepPublicKey must be an RSA-OAEP key')
     const rawKey = await crypto.subtle.exportKey('raw', roomKey)
     const wrapped = await crypto.subtle.encrypt(
       { name: 'RSA-OAEP' },
@@ -213,8 +210,11 @@ export class Identity {
     return crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt'])
   }
 
+  // CANONICAL: This replaces crypto/storage.ts::saveRoomKey/loadRoomKey
   async saveRoomKey(roomKey: CryptoKey, roomId: string): Promise<void> {
-    // SECURITY: raw AES-GCM key stored in localStorage; acceptable because this browser is the trust boundary for this session.
+    // SECURITY: raw AES-GCM key persisted to localStorage (survives tab close and browser restart).
+    // Acceptable under the assumption that XSS on this origin is the primary threat and no additional
+    // key-wrapping mechanism is available in this OSS version.
     const raw = await crypto.subtle.exportKey('raw', roomKey)
     localStorage.setItem(`${STORAGE_KEYS.ROOM_KEY}:${roomId}`, bufferToBase64url(raw))
   }

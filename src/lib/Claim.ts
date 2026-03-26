@@ -37,7 +37,7 @@ export class Claim {
     role: Role,
     iss: string,
     signingPublicKey: CryptoKey,
-    signingPrivateKey: CryptoKey,
+    signer: (data: BufferSource) => Promise<ArrayBuffer>,
     expirySeconds = 86400,
   ): Promise<Claim> {
     const claim = new Claim(signingPublicKey)
@@ -56,11 +56,7 @@ export class Claim {
     const headerB64 = Claim.#encodeB64url(header)
     const payloadB64 = Claim.#encodeB64url(fullPayload)
     const input = `${headerB64}.${payloadB64}`
-    const sig = await crypto.subtle.sign(
-      { name: 'RSASSA-PKCS1-v1_5' },
-      signingPrivateKey,
-      new TextEncoder().encode(input),
-    )
+    const sig = await signer(new TextEncoder().encode(input))
     const signature = bufferToBase64url(sig)
 
     claim.#raw = `${input}.${signature}`
