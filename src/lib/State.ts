@@ -11,6 +11,7 @@ export interface EncryptedChatEntry {
   id: string
   senderId: string
   senderLabel: string
+  sentAt: number
   iv: string
   ciphertext: string
 }
@@ -120,11 +121,9 @@ export class State {
 
   getEncryptedMessages(options?: { before?: number; limit?: number }): EncryptedChatEntry[] {
     const limit = options?.limit ?? 30
-    const before = options?.before ?? 0
-    const length = this.#moderatorChat.length
-    const end = length - before
-    const start = Math.max(0, end - limit)
-    return this.#moderatorChat.toArray().slice(start, end)
+    const entries = this.#moderatorChat.toArray()
+    const filtered = options?.before ? entries.filter((e) => e.sentAt < options.before!) : entries
+    return filtered.slice(-limit)
   }
 
   observeMessages(cb: (newEntries: EncryptedChatEntry[]) => void): () => void {

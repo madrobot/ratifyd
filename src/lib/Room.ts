@@ -59,6 +59,8 @@ export class Room {
     string,
     { token: string; signingPubKeyB64: string; oaepPubKeyB64: string | null }
   >()
+  #destroyed = false
+  #messageObserverAttached = false
 
   private constructor() {}
 
@@ -261,6 +263,7 @@ export class Room {
           if (!pending || pending.token !== admToken) return
           const iss = await Claim.peek(admToken, 'iss')
           const issuerKeyB64 = this.#state.getIssuerSigningPublicKey(iss)
+          if (!issuerKeyB64) return // unknown issuer at response time, ignore
           const knownPubKey = this.#state.getInviteSigningPublicKey(
             await Claim.peek(admToken, 'jti'),
           )
@@ -274,7 +277,7 @@ export class Room {
             )
             const claim = await Claim.verify(
               admToken,
-              await Identity.importSigningPublicKey(issuerKeyB64!),
+              await Identity.importSigningPublicKey(issuerKeyB64),
             )
             this.#state.addPeer(claim, pending.signingPubKeyB64)
             this.#emit('peer-admitted', {
@@ -306,6 +309,8 @@ export class Room {
   }
 
   #setupMessageObserver(): void {
+    if (this.#messageObserverAttached) return
+    this.#messageObserverAttached = true
     const cleanup = this.#state.observeMessages((entries) => {
       for (const entry of entries) {
         this.#decryptAndCacheMessage(entry)
@@ -327,7 +332,7 @@ export class Room {
       id: entry.id,
       peerId: entry.senderId,
       text,
-      sentAt: Date.now(),
+      sentAt: entry.sentAt,
     }
     this.#messageCache.push(msg)
     return msg
@@ -395,6 +400,10 @@ export class Room {
   // ── Public API ──────────────────────────────────────────────────────────────
 
   async createInvite(role: 'moderator' | 'guest'): Promise<string> {
+    // Both owner and moderator can mint invite JWTs.
+    // Moderator-issued JWTs are accepted by the owner because the moderator's
+    // signing key is in trustedSigningKeys after their own admission.
+    // The spec (docs/plans/ratifyd-adr.md) explicitly authorizes this.
     if (this.#role === ROLES.GUEST) throw new AuthError('Guests cannot create invites')
     if (role === ROLES.GUEST) {
       const admitted = this.#state.listAdmittedPeers()
@@ -452,6 +461,7 @@ export class Room {
       id: crypto.randomUUID(),
       senderId: this.#identity.id,
       senderLabel: this.#identity.label,
+      sentAt: Date.now(),
       iv: blob.iv,
       ciphertext: blob.ciphertext,
     }
@@ -470,7 +480,7 @@ export class Room {
               id: e.id,
               peerId: e.senderId,
               text,
-              sentAt: Date.now(),
+              sentAt: e.sentAt,
             }) as DecryptedMessage,
         ),
       ),
@@ -495,6 +505,8 @@ export class Room {
   }
 
   destroy(): void {
+    if (this.#destroyed) return
+    this.#destroyed = true
     for (const cleanup of this.#teardown) cleanup()
     this.#teardown = []
     this.#protocol.destroy()

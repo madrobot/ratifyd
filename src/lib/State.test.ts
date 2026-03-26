@@ -381,10 +381,11 @@ describe('State chat operations', () => {
     doc.destroy()
   })
 
-  const makeEntry = (id: string): import('./State').EncryptedChatEntry => ({
+  const makeEntry = (id: string, sentAt = Date.now()): import('./State').EncryptedChatEntry => ({
     id,
     senderId: 'peer-1',
     senderLabel: 'Alice',
+    sentAt,
     iv: 'iv-data',
     ciphertext: 'cipher-data',
   })
@@ -409,12 +410,19 @@ describe('State chat operations', () => {
     expect(messages[9].id).toBe('msg-49')
   })
 
-  it('getEncryptedMessages respects before option (pagination)', () => {
-    for (let i = 0; i < 50; i++) state.appendMessage(makeEntry(`msg-${i}`))
-    const page1 = state.getEncryptedMessages({ limit: 10, before: 0 })
-    const page2 = state.getEncryptedMessages({ limit: 10, before: 10 })
-    expect(page1[9].id).toBe('msg-49')
-    expect(page2[9].id).toBe('msg-39')
+  it('getEncryptedMessages respects before option (timestamp-based pagination)', () => {
+    // Create entries with sequential timestamps so we can paginate by sentAt
+    const base = 1_000_000
+    for (let i = 0; i < 20; i++) state.appendMessage(makeEntry(`msg-${i}`, base + i))
+    // All 20 messages have sentAt in [base, base+19]
+    // before: base+10 should return only messages with sentAt < base+10 (i.e. msg-0..msg-9)
+    const page1 = state.getEncryptedMessages({ limit: 10, before: base + 10 })
+    expect(page1).toHaveLength(10)
+    expect(page1[9].id).toBe('msg-9')
+    // before: base+20 returns all 20, but limit 10 gives last 10
+    const page2 = state.getEncryptedMessages({ limit: 10, before: base + 20 })
+    expect(page2).toHaveLength(10)
+    expect(page2[9].id).toBe('msg-19')
   })
 
   it('observeMessages fires callback with newly added entries', () => {
