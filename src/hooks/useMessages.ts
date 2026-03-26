@@ -7,6 +7,7 @@ interface State {
 }
 
 type Action =
+  | { type: 'loading' }
   | { type: 'loaded'; messages: DecryptedMessage[] }
   | { type: 'load-failed' }
   | { type: 'append'; message: DecryptedMessage }
@@ -14,6 +15,8 @@ type Action =
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case 'loading':
+      return { ...state, loading: true }
     case 'loaded':
       return { messages: action.messages, loading: false }
     case 'load-failed':
@@ -28,11 +31,14 @@ function reducer(state: State, action: Action): State {
 export function useMessages(room: Room | null) {
   const [{ messages, loading }, dispatch] = useReducer(reducer, {
     messages: [],
-    loading: room !== null,
+    loading: false,
   })
 
   useEffect(() => {
     if (!room) return
+
+    // Signal loading before the async fetch so loading=true even when room arrives after mount
+    dispatch({ type: 'loading' })
 
     // Initial load — all state changes happen inside async callbacks
     room

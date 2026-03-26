@@ -64,9 +64,15 @@ export class Identity {
     return this.#label
   }
 
+  /** @internal Exposed for test assertions only — prefer verifyClaim() in production code */
   get signingPublicKey(): CryptoKey {
     if (!this.#signingKeyPair) throw new IdentityError('Invalid identity, missing signing key')
     return this.#signingKeyPair.publicKey
+  }
+
+  async verifyClaim(token: string): Promise<Claim> {
+    if (!this.#signingKeyPair) throw new IdentityError('Cannot verify claim: no signing key pair')
+    return Claim.verify(token, this.#signingKeyPair.publicKey)
   }
 
   get oaepPublicKey(): CryptoKey | null {
@@ -74,7 +80,7 @@ export class Identity {
   }
 
   async getSigningPublicKeyB64(): Promise<string> {
-    if (!this.#signingKeyPair) throw new Error('Signing key pair not generated')
+    if (!this.#signingKeyPair) throw new IdentityError('Signing key pair not generated')
     return bufferToBase64url(await crypto.subtle.exportKey('spki', this.#signingKeyPair!.publicKey))
   }
 
@@ -84,7 +90,7 @@ export class Identity {
   }
 
   async sign(data: string | ArrayBuffer): Promise<ArrayBuffer> {
-    if (!this.#signingKeyPair) throw new Error('Signing key pair not generated')
+    if (!this.#signingKeyPair) throw new IdentityError('Signing key pair not generated')
     const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data
     return crypto.subtle.sign(
       { name: 'RSASSA-PKCS1-v1_5' },
@@ -94,7 +100,7 @@ export class Identity {
   }
 
   async verify(signature: ArrayBuffer, data: string | ArrayBuffer): Promise<boolean> {
-    if (!this.#signingKeyPair) throw new Error('Signing key pair not generated')
+    if (!this.#signingKeyPair) throw new IdentityError('Signing key pair not generated')
     const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data
     return crypto.subtle.verify(
       { name: 'RSASSA-PKCS1-v1_5' },
@@ -105,7 +111,7 @@ export class Identity {
   }
 
   async save(): Promise<Identity> {
-    if (!this.#signingKeyPair) throw new Error('Signing key pair not generated')
+    if (!this.#signingKeyPair) throw new IdentityError('Signing key pair not generated')
 
     const exp: IdentityExport = {
       id: this.#id,

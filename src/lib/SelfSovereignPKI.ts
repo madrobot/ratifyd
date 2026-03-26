@@ -40,10 +40,12 @@ export class SelfSovereignPKI {
       await Identity.importSigningPublicKey(issuerSigningPublicKey),
     )
 
+    const pending = this.#admissionRequests.get(claim.jti)
+    this.#admissionRequests.delete(claim.jti) // burn nonce BEFORE verification to prevent replay
     return this.#verifyNonceSignature(
       await Identity.importSigningPublicKey(knownPeerSigningPublicKey ?? peerSigningPublicKey),
       base64urlToBuffer(nonceSignature),
-      this.#admissionRequests.get(claim.jti)?.nonce || null,
+      pending?.nonce || null,
     )
   }
 

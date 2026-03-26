@@ -249,6 +249,28 @@ describe('SelfSovereignPKI.respondToChallenge', () => {
     expect(result).toBe(true)
   })
 
+  it('burns the nonce after successful verification — second call with same token rejects', async () => {
+    pki = new SelfSovereignPKI()
+    const issuer = await Identity.create()
+    const peer = await Identity.create()
+    const issuerPubB64 = await issuer.getSigningPublicKeyB64()
+    const peerPubB64 = await peer.getSigningPublicKeyB64()
+    const claim = await issuer.mintClaim(peer.id, 'room-replay', ROLES.MODERATOR, issuer.id)
+
+    const { nonce } = await pki.requestAdmission(claim.raw, issuerPubB64)
+    const sig = bufferToBase64url(await peer.sign(nonce))
+
+    // First call succeeds
+    await expect(
+      pki.respondToChallenge(claim.raw, issuerPubB64, peerPubB64, sig, null),
+    ).resolves.toBe(true)
+
+    // Second call with the same token and signature must fail — nonce was burned
+    await expect(
+      pki.respondToChallenge(claim.raw, issuerPubB64, peerPubB64, sig, null),
+    ).rejects.toThrow(AuthError)
+  })
+
   it('full owner admission flow succeeds end-to-end', async () => {
     pki = new SelfSovereignPKI()
     const owner = await Identity.create()

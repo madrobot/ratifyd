@@ -125,7 +125,15 @@ export class Room {
 
     if (isOwnerSelfAdmit) {
       room.#roomKey = await Identity.loadRoomKey(roomId)
-      const claim = await Claim.verify(token, identity.signingPublicKey)
+      if (!room.#roomKey) {
+        room.#status = 'error'
+        room.#emit(
+          'error',
+          new RoomError('Owner room key not found in storage — possible storage clear'),
+        )
+        return room
+      }
+      const claim = await identity.verifyClaim(token)
       room.#state.addPeer(claim, await identity.getSigningPublicKeyB64())
       room.#setupPeerLeftListener()
       room.#setupOwnerSideHandlers()
