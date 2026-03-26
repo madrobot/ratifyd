@@ -38,6 +38,7 @@ export const SIGNALING_SERVERS: string[] = [
 ]
 
 export const STORAGE_KEYS = {
+  IDENTITY: 'ratifyd:identity', // Stable identity (all roles)
   SIGN_PRIV: 'ratifyd:sign:priv', // RSA signing private key
   SIGN_PUB: 'ratifyd:sign:pub', // RSA signing public key
   OAEP_PRIV: 'ratifyd:oaep:priv', // RSA-OAEP private key (owner + moderators)
