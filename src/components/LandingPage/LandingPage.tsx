@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createRoom } from '../../lib/room/createRoom'
+import { Room } from '../../lib/Room'
 
 export default function LandingPage() {
   const [loading, setLoading] = useState(false)
@@ -9,7 +9,11 @@ export default function LandingPage() {
     setLoading(true)
     setError(null)
     try {
-      await createRoom()
+      const room = await Room.create()
+      const params = new URLSearchParams()
+      params.set('token', room.token)
+      window.location.hash = params.toString()
+      room.destroy()
     } catch (err) {
       console.error(err)
       setError('Failed to create session. Please try again.')

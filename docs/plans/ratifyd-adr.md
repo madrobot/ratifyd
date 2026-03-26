@@ -4,7 +4,7 @@
 **Company:** Tenthbyte  
 **Domain:** `ratifyd.io` (TBD)  
 **Status:** Active / In Design  
-**Last Updated:** 2026-03-21
+**Last Updated:** 2026-03-26
 
 ---
 
@@ -213,6 +213,50 @@ Everything in the **URL fragment (`#`)** — never query params or path. Fragmen
 | Add Guest button                     | ✅ (once) | ✅ (once) | ❌    |
 | Admits peers                         | ✅ only   | ❌        | ❌    |
 | Distributes room key                 | ✅ only   | ❌        | ❌    |
+
+### 4.4 Domain Class Architecture
+
+The application logic has been refactored from standalone functions spread across `src/lib/{admission,crypto,jwt,room,yjs}` into a set of domain classes that encapsulate both state and operations:
+
+| Class              | File                          | Responsibility                                                                            |
+| ------------------ | ----------------------------- | ----------------------------------------------------------------------------------------- |
+| `Room`             | `src/lib/Room.ts`             | Session orchestrator — WebRTC, IndexedDB, admission, encrypted content, Yjs binding       |
+| `Identity`         | `src/lib/Identity.ts`         | Key management — signing, OAEP, room key storage; all key operations are instance methods |
+| `Claim`            | `src/lib/Claim.ts`            | JWT lifecycle — mint (via signer callback), verify, peek                                  |
+| `SelfSovereignPKI` | `src/lib/SelfSovereignPKI.ts` | Admission protocol — nonce generation and challenge-response verification                 |
+| `State`            | `src/lib/State.ts`            | Yjs shared document — typed accessors, domain operations, encrypted blob storage          |
+| `TTLMap`           | `src/lib/TTLMap.ts`           | TTL-expiring map used by `SelfSovereignPKI` for admission nonce tracking                  |
+| `AppError`         | `src/lib/error/AppError.ts`   | Base error class; `AuthError`, `RoomError`, `TokenError`, `IdentityError` extend it       |
+
+**Design principles enforced by this architecture:**
+
+- Private keys never leave the `Identity` instance. All crypto operations (`sign`, `wrapRoomKey`, `unwrapRoomKey`) are methods on `Identity`.
+- The room key never leaves `Room`. It is held as a private `#roomKey` field; encrypt/decrypt operations are private methods.
+- `Claim` instances produced by `Claim.verify()` enforce expiry on every field access. Callers cannot accidentally read from an expired token.
+- `SelfSovereignPKI` scopes admission state (pending nonces) to the instance — no module-level state.
+
+**Absorbed modules:**
+
+The following directories have been deleted. Their logic is now entirely in the domain classes above:
+
+| Deleted module       | Absorbed into                      |
+| -------------------- | ---------------------------------- |
+| `src/lib/crypto/`    | `Identity.ts`                      |
+| `src/lib/jwt/`       | `Claim.ts`                         |
+| `src/lib/admission/` | `SelfSovereignPKI.ts` + `Room.ts`  |
+| `src/lib/yjs/`       | `State.ts` + `Room.ts`             |
+| `src/lib/room/`      | `Room.ts` + `src/hooks/useRoom.ts` |
+
+### 4.5 React Integration
+
+React components interact with the domain layer exclusively through thin hook wrappers. No component imports directly from `src/lib/` except `src/lib/Room.ts` and `src/lib/router.ts`.
+
+| Hook              | File                           | Purpose                                           |
+| ----------------- | ------------------------------ | ------------------------------------------------- |
+| `useRoom`         | `src/hooks/useRoom.ts`         | Join/create room, track status                    |
+| `useExcalidraw`   | `src/hooks/useExcalidraw.ts`   | Bind Excalidraw API to Room                       |
+| `useMessages`     | `src/hooks/useMessages.ts`     | Chat messages with lazy decryption and pagination |
+| `useInstructions` | `src/hooks/useInstructions.ts` | Interviewer instructions with real-time updates   |
 
 ---
 

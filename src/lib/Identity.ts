@@ -182,7 +182,7 @@ export class Identity {
     if (!this.#signingKeyPair)
       throw new IdentityError('Cannot mint claim: signing key pair not present')
     return Claim.mint(sub, room, role, iss, this.#signingKeyPair.publicKey, (data) =>
-      this.sign(data),
+      this.sign(ArrayBuffer.isView(data) ? data.buffer : (data as ArrayBuffer)),
     )
   }
 

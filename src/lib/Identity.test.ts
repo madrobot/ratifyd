@@ -2,7 +2,39 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { Identity } from './Identity'
 import { IdentityError } from './error/IdentityError'
 import { ROLES } from '../constants'
-import { generateRoomKey, encryptWithRoomKey, decryptWithRoomKey } from './crypto/roomKey'
+import { bufferToBase64url, base64urlToBuffer } from './helper'
+
+async function generateRoomKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt'])
+}
+
+async function encryptWithRoomKey(
+  plaintext: string,
+  key: CryptoKey,
+): Promise<{ iv: string; ciphertext: string }> {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const enc = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    new TextEncoder().encode(plaintext),
+  )
+  return {
+    iv: bufferToBase64url(iv.buffer as ArrayBuffer),
+    ciphertext: bufferToBase64url(enc),
+  }
+}
+
+async function decryptWithRoomKey(
+  blob: { iv: string; ciphertext: string },
+  key: CryptoKey,
+): Promise<string> {
+  const dec = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: base64urlToBuffer(blob.iv) },
+    key,
+    base64urlToBuffer(blob.ciphertext),
+  )
+  return new TextDecoder().decode(dec)
+}
 
 beforeEach(() => {
   localStorage.clear()
