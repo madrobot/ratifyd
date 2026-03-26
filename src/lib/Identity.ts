@@ -1,7 +1,9 @@
 import { generateUsername } from 'unique-username-generator'
 import { base64urlToBuffer, bufferToBase64url } from './helper'
 import { STORAGE_KEYS } from '../constants'
+import type { Role } from '../constants'
 import { IdentityError } from './error/IdentityError'
+import { Claim } from './Claim'
 
 const SIGN_ALGO: RsaHashedKeyGenParams = {
   name: 'RSASSA-PKCS1-v1_5',
@@ -174,5 +176,55 @@ export class Identity {
 
   static async importOaepPrivateKey(b64: string): Promise<CryptoKey> {
     return crypto.subtle.importKey('pkcs8', base64urlToBuffer(b64), OAEP_ALGO, true, ['decrypt'])
+  }
+
+  async mintClaim(sub: string, room: string, role: Role, iss: string): Promise<Claim> {
+    if (!this.#signingKeyPair)
+      throw new IdentityError('Cannot mint claim: signing key pair not present')
+    return Claim.mint(
+      sub,
+      room,
+      role,
+      iss,
+      this.#signingKeyPair.publicKey,
+      this.#signingKeyPair.privateKey,
+    )
+  }
+
+  async wrapRoomKey(roomKey: CryptoKey, recipientOaepPublicKey: CryptoKey): Promise<string> {
+    const rawKey = await crypto.subtle.exportKey('raw', roomKey)
+    const wrapped = await crypto.subtle.encrypt(
+      { name: 'RSA-OAEP' },
+      recipientOaepPublicKey,
+      rawKey,
+    )
+    return bufferToBase64url(wrapped)
+  }
+
+  async unwrapRoomKey(wrappedKeyB64: string): Promise<CryptoKey> {
+    if (!this.#oaepKeyPair)
+      throw new IdentityError('Cannot unwrap room key: OAEP key pair not present')
+    const wrapped = base64urlToBuffer(wrappedKeyB64)
+    const rawKey = await crypto.subtle.decrypt(
+      { name: 'RSA-OAEP' },
+      this.#oaepKeyPair.privateKey,
+      wrapped,
+    )
+    return crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt'])
+  }
+
+  async saveRoomKey(roomKey: CryptoKey, roomId: string): Promise<void> {
+    // SECURITY: raw AES-GCM key stored in localStorage; acceptable because this browser is the trust boundary for this session.
+    const raw = await crypto.subtle.exportKey('raw', roomKey)
+    localStorage.setItem(`${STORAGE_KEYS.ROOM_KEY}:${roomId}`, bufferToBase64url(raw))
+  }
+
+  static async loadRoomKey(roomId: string): Promise<CryptoKey | null> {
+    const b64 = localStorage.getItem(`${STORAGE_KEYS.ROOM_KEY}:${roomId}`)
+    if (!b64) return null
+    return crypto.subtle.importKey('raw', base64urlToBuffer(b64), { name: 'AES-GCM' }, true, [
+      'encrypt',
+      'decrypt',
+    ])
   }
 }
