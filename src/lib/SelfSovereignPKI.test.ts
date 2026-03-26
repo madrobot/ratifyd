@@ -287,6 +287,6 @@ describe('SelfSovereignPKI.destroy', () => {
     // After destroy, no nonce should exist for this jti
     await expect(
       pki.respondToChallenge(claim.raw, issuerPubB64, peerPubB64, sig, null),
-    ).rejects.toThrow(AuthError)
+    ).rejects.toThrow('No nonce issued for this token')
   })
 })
