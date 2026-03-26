@@ -27,8 +27,8 @@ export class Room {
   private constructor(webrtc: WebrtcProvider) {
     this.#id = crypto.randomUUID()
     this.#webrtc = webrtc
-    this.#protocol = new SelfSovereignPKI(webrtc)
-    this.#state = new State()
+    this.#protocol = new SelfSovereignPKI()
+    this.#state = new State(webrtc.doc)
   }
 
   // ---- ENTRY POINT HERE ----

@@ -41,8 +41,8 @@ export class State {
   #editorLanguage: Y.Map<string>
   #excalidrawState: Y.Map<string>
 
-  constructor() {
-    this.#doc = new Y.Doc()
+  constructor(doc: Y.Doc) {
+    this.#doc = doc
     this.#trustedSigningKeys = this.#doc.getMap<string>('trustedSigningKeys')
     this.#burnedJTIs = this.#doc.getMap<string>('burnedJTIs')
     this.#admittedPeers = this.#doc.getMap<AdmittedPeer>('admittedPeers')
@@ -51,6 +51,42 @@ export class State {
     this.#editorContent = this.#doc.getText('editorContent')
     this.#editorLanguage = this.#doc.getMap<string>('editorLanguage')
     this.#excalidrawState = this.#doc.getMap<string>('excalidrawState')
+  }
+
+  get doc(): Y.Doc {
+    return this.#doc
+  }
+
+  get trustedSigningKeys(): Y.Map<string> {
+    return this.#trustedSigningKeys
+  }
+
+  get burnedJTIs(): Y.Map<string> {
+    return this.#burnedJTIs
+  }
+
+  get admittedPeers(): Y.Map<AdmittedPeer> {
+    return this.#admittedPeers
+  }
+
+  get moderatorChat(): Y.Array<EncryptedChatEntry> {
+    return this.#moderatorChat
+  }
+
+  get moderatorNotes(): Y.Map<string> {
+    return this.#moderatorNotes
+  }
+
+  get editorContent(): Y.Text {
+    return this.#editorContent
+  }
+
+  get editorLanguage(): Y.Map<string> {
+    return this.#editorLanguage
+  }
+
+  get excalidrawState(): Y.Map<string> {
+    return this.#excalidrawState
   }
 
   async addPeer(claim: Claim, signingPublicKey: string): Promise<void> {
