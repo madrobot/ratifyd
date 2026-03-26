@@ -42,14 +42,7 @@ export class Room {
       'decrypt',
     ]) // TODO: should save this? To local storage? Wrapped?
 
-    const claim = await Claim.mint(
-      room.#owner.id,
-      room.#id,
-      ROLES.OWNER,
-      room.#owner.id,
-      room.#owner.signingPublicKey,
-      room.#owner.signingPrivateKey,
-    )
+    const claim = await room.#owner.mintClaim(room.#owner.id, room.#id, ROLES.OWNER, room.#owner.id)
 
     const signingPublicKeyB64 = await room.#owner.getSigningPublicKeyB64()
 
