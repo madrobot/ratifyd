@@ -487,6 +487,7 @@ export class Room {
   }
 
   async getInstructions(): Promise<string> {
+    if (this.#role === ROLES.GUEST) throw new AuthError('Guests cannot read instructions')
     const blob = this.#state.getNotes()
     if (!blob) return ''
     if (!this.#roomKey) throw new RoomError('No room key available')
