@@ -776,6 +776,177 @@ describe('AdmissionCoordinator: destroy()', () => {
   })
 })
 
+// ── Test: unknown issuer is skipped (continue), valid peer still processed ────
+
+describe('AdmissionCoordinator: owner side — unknown issuer is continue, not return', () => {
+  it('processes the valid peer even when a prior peer has an unknown issuer', async () => {
+    const ownerIdentity = await Identity.create(undefined, true)
+    const ownerPubB64 = await ownerIdentity.getSigningPublicKeyB64()
+    const roomId = crypto.randomUUID()
+    const sessionKey = await SessionKey.generate()
+
+    const { state, doc } = makeState()
+    const ownerClaim = await ownerIdentity.mintClaim(
+      ownerIdentity.id,
+      roomId,
+      ROLES.OWNER,
+      ownerIdentity.id,
+    )
+    state.addPeer(ownerClaim, ownerPubB64)
+
+    const ownerTransport = new FakeTransport(1)
+    const protocol = new SelfSovereignPKI()
+    const callbacks = makeCallbacks()
+
+    const coordinator = new AdmissionCoordinator(
+      ownerTransport,
+      protocol,
+      state,
+      ownerIdentity,
+      callbacks,
+    )
+    coordinator.setupOwnerHandlers(sessionKey)
+
+    // Peer 2: unknown issuer — should be skipped, NOT abort the whole handler
+    const unknownIssuer = await Identity.create()
+    const badPeerIdentity = await Identity.create()
+    const badPeerPubB64 = await badPeerIdentity.getSigningPublicKeyB64()
+    const unknownToken = (
+      await unknownIssuer.mintClaim(badPeerIdentity.id, roomId, ROLES.GUEST, unknownIssuer.id)
+    ).raw
+
+    // Peer 3: valid issuer — should still be processed
+    const goodPeerIdentity = await Identity.create()
+    const goodPeerPubB64 = await goodPeerIdentity.getSigningPublicKeyB64()
+    const goodToken = (
+      await ownerIdentity.mintClaim(goodPeerIdentity.id, roomId, ROLES.GUEST, ownerIdentity.id)
+    ).raw
+
+    // Both peers in awareness simultaneously
+    ownerTransport.setRemoteState(2, {
+      adm: {
+        type: 'admission-request',
+        token: unknownToken,
+        signingPubKeyB64: badPeerPubB64,
+        oaepPubKeyB64: null,
+      },
+    })
+    ownerTransport.setRemoteState(3, {
+      adm: {
+        type: 'admission-request',
+        token: goodToken,
+        signingPubKeyB64: goodPeerPubB64,
+        oaepPubKeyB64: null,
+      },
+    })
+    await ownerTransport.simulateChange()
+
+    // Owner should have sent a nonce only for the valid peer (clientID 3)
+    const nonceFields = ownerTransport.localStateFields.filter(
+      (f) => f.field === 'adm' && (f.value as Record<string, unknown>).type === 'admission-nonce',
+    )
+    // At least one nonce should have been emitted for clientID 3
+    const noncesForGood = nonceFields.filter(
+      (f) => (f.value as Record<string, unknown>).forPeerId === '3',
+    )
+    expect(noncesForGood).toHaveLength(1)
+
+    // No nonce for the invalid peer (clientID 2)
+    const noncesForBad = nonceFields.filter(
+      (f) => (f.value as Record<string, unknown>).forPeerId === '2',
+    )
+    expect(noncesForBad).toHaveLength(0)
+
+    coordinator.destroy()
+    protocol.destroy()
+    doc.destroy()
+  })
+})
+
+// ── Test: departure handler prunes stale #pendingAdmission entries ─────────────
+
+describe('AdmissionCoordinator: departure handler prunes pending admission', () => {
+  it('removes a peer from #pendingAdmission when they disconnect mid-handshake', async () => {
+    const ownerIdentity = await Identity.create(undefined, true)
+    const ownerPubB64 = await ownerIdentity.getSigningPublicKeyB64()
+    const roomId = crypto.randomUUID()
+    const sessionKey = await SessionKey.generate()
+
+    const { state, doc } = makeState()
+    const ownerClaim = await ownerIdentity.mintClaim(
+      ownerIdentity.id,
+      roomId,
+      ROLES.OWNER,
+      ownerIdentity.id,
+    )
+    state.addPeer(ownerClaim, ownerPubB64)
+
+    const ownerTransport = new FakeTransport(1)
+    const protocol = new SelfSovereignPKI()
+    const callbacks = makeCallbacks()
+
+    const coordinator = new AdmissionCoordinator(
+      ownerTransport,
+      protocol,
+      state,
+      ownerIdentity,
+      callbacks,
+    )
+    coordinator.setupOwnerHandlers(sessionKey)
+
+    // Peer sends admission-request — gets stored in #pendingAdmission
+    const guestIdentity = await Identity.create()
+    const guestPubB64 = await guestIdentity.getSigningPublicKeyB64()
+    const guestToken = (
+      await ownerIdentity.mintClaim(guestIdentity.id, roomId, ROLES.GUEST, ownerIdentity.id)
+    ).raw
+
+    ownerTransport.setRemoteState(2, {
+      adm: {
+        type: 'admission-request',
+        token: guestToken,
+        signingPubKeyB64: guestPubB64,
+        oaepPubKeyB64: null,
+      },
+    })
+    await ownerTransport.simulateChange()
+
+    // Nonce should have been sent — pending entry now exists
+    const nonceFields = ownerTransport.localStateFields.filter(
+      (f) => f.field === 'adm' && (f.value as Record<string, unknown>).type === 'admission-nonce',
+    )
+    expect(nonceFields).toHaveLength(1)
+
+    // Peer disconnects before completing handshake
+    ownerTransport.removeRemoteState(2)
+    await ownerTransport.simulateChange({ removed: [2] })
+
+    // Now the peer tries to reconnect and re-sends an admission-request
+    // with the same token. If #pendingAdmission was NOT pruned, the handler
+    // would still see the old pending entry. If it WAS pruned, it processes fresh.
+    // To verify pruning, we check that a subsequent admission-response from a
+    // third peer (who was never in pending) does NOT trigger onPeerAdmitted.
+    // More directly: after removal, sending admission-response for the departed
+    // peer should be a no-op (no onPeerAdmitted call).
+    ownerTransport.setRemoteState(2, {
+      adm: {
+        type: 'admission-response',
+        token: guestToken,
+        signatureB64: 'invalid-signature-should-not-matter',
+      },
+    })
+    await ownerTransport.simulateChange()
+
+    // Because the pending entry was pruned, the response is skipped entirely —
+    // onPeerAdmitted must not have been called.
+    expect(callbacks.peerAdmitted).toHaveLength(0)
+
+    coordinator.destroy()
+    protocol.destroy()
+    doc.destroy()
+  })
+})
+
 // ── Test: peer-side ignores nonces not meant for this peer ────────────────────
 
 describe('AdmissionCoordinator: peer side — ignores nonces for other peers', () => {

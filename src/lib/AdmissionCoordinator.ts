@@ -107,7 +107,7 @@ export class AdmissionCoordinator {
           const oaepPubKeyB64 = adm.oaepPubKeyB64 as string | null
           const iss = await Claim.peek(admToken, 'iss')
           const issuerKeyB64 = this.#state.getIssuerSigningPublicKey(iss)
-          if (!issuerKeyB64) return
+          if (!issuerKeyB64) continue
           try {
             const { nonce } = await this.#protocol.requestAdmission(admToken, issuerKeyB64)
             this.#transport.setLocalStateField('adm', {
@@ -127,10 +127,10 @@ export class AdmissionCoordinator {
           const admToken = adm.token as string
           const signatureB64 = adm.signatureB64 as string
           const pending = this.#pendingAdmission.get(String(clientId))
-          if (!pending || pending.token !== admToken) return
+          if (!pending || pending.token !== admToken) continue
           const iss = await Claim.peek(admToken, 'iss')
           const issuerKeyB64 = this.#state.getIssuerSigningPublicKey(iss)
-          if (!issuerKeyB64) return // unknown issuer at response time, ignore
+          if (!issuerKeyB64) continue // unknown issuer at response time, ignore
           const knownPubKey = this.#state.getInviteSigningPublicKey(
             await Claim.peek(admToken, 'jti'),
           )
@@ -173,6 +173,17 @@ export class AdmissionCoordinator {
     this.#teardown.push(() => {
       this.#transport.off('change', handler)
     })
+
+    // Prune stale pending admission entries when a peer departs so the map
+    // does not grow unboundedly in long-lived owner rooms.
+    const departureHandler = ({ removed }: { removed?: number[] }) => {
+      if (!removed) return
+      for (const clientId of removed) {
+        this.#pendingAdmission.delete(String(clientId))
+      }
+    }
+    this.#transport.on('change', departureHandler)
+    this.#teardown.push(() => this.#transport.off('change', departureHandler))
   }
 
   // ── Peer-side handler ───────────────────────────────────────────────────────

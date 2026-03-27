@@ -13,6 +13,7 @@ import { SelfSovereignPKI } from './SelfSovereignPKI'
 import { State } from './State'
 import type { EncryptedChatEntry } from './State'
 import { AdmissionCoordinator } from './AdmissionCoordinator'
+import type { AdmissionCoordinatorCallbacks } from './AdmissionCoordinator'
 import { AuthError } from './error/AuthError'
 import { RoomError } from './error/RoomError'
 
@@ -89,18 +90,7 @@ export class Room {
       room.#protocol,
       room.#state,
       room.#identity,
-      {
-        onAdmitted: () => {},
-        onPeerAdmitted: (info) => room.#emit('peer-admitted', info),
-        onStatusChange: (status) => {
-          room.#status = status
-          room.#emit('status', status)
-        },
-        onError: (err) => {
-          room.#status = 'error'
-          room.#emit('error', err)
-        },
-      },
+      room.#buildCoordinatorCallbacks(() => {}),
     )
     room.#coordinator.setupOwnerHandlers(room.#sessionKey!)
     room.#teardown.push(() => room.#coordinator?.destroy())
@@ -153,18 +143,7 @@ export class Room {
         room.#protocol,
         room.#state,
         room.#identity,
-        {
-          onAdmitted: () => {},
-          onPeerAdmitted: (info) => room.#emit('peer-admitted', info),
-          onStatusChange: (status) => {
-            room.#status = status
-            room.#emit('status', status)
-          },
-          onError: (err) => {
-            room.#status = 'error'
-            room.#emit('error', err)
-          },
-        },
+        room.#buildCoordinatorCallbacks(() => {}),
       )
       room.#coordinator.setupOwnerHandlers(room.#sessionKey!)
       room.#teardown.push(() => room.#coordinator?.destroy())
@@ -176,21 +155,10 @@ export class Room {
         room.#protocol,
         room.#state,
         room.#identity,
-        {
-          onAdmitted: (sk) => {
-            if (sk) room.#sessionKey = sk
-            room.#setupMessageObserver()
-          },
-          onPeerAdmitted: (info) => room.#emit('peer-admitted', info),
-          onStatusChange: (status) => {
-            room.#status = status
-            room.#emit('status', status)
-          },
-          onError: (err) => {
-            room.#status = 'error'
-            room.#emit('error', err)
-          },
-        },
+        room.#buildCoordinatorCallbacks((sk) => {
+          if (sk) room.#sessionKey = sk
+          room.#setupMessageObserver()
+        }),
       )
       // Moderators can also admit other peers, so they get owner handlers too.
       // sessionKey is null here because the peer doesn't have it yet at admission time.
@@ -214,6 +182,23 @@ export class Room {
   }
 
   // ── Private methods ──────────────────────────────────────────────────────────
+
+  #buildCoordinatorCallbacks(
+    onAdmitted: (sk: SessionKey | null) => void,
+  ): AdmissionCoordinatorCallbacks {
+    return {
+      onAdmitted,
+      onPeerAdmitted: (info) => this.#emit('peer-admitted', info),
+      onStatusChange: (status) => {
+        this.#status = status
+        this.#emit('status', status)
+      },
+      onError: (err) => {
+        this.#status = 'error'
+        this.#emit('error', err)
+      },
+    }
+  }
 
   #setupPeerLeftListener(): void {
     const handler = ({ removed }: { removed: number[] }) => {
