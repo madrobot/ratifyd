@@ -7,14 +7,18 @@ import { ROLES, SIGNALING_SERVERS, YJS_ROOM_PREFIX } from '../constants'
 import type { Role } from '../constants'
 import { Claim } from './Claim'
 import { Identity } from './Identity'
+import { SessionKey } from './SessionKey'
+import type { EncryptedBlob } from './SessionKey'
 import { SelfSovereignPKI } from './SelfSovereignPKI'
 import { State } from './State'
 import type { EncryptedChatEntry } from './State'
 import { AuthError } from './error/AuthError'
 import { RoomError } from './error/RoomError'
-import { bufferToBase64url, base64urlToBuffer } from './helper'
+import { bufferToBase64url } from './helper'
 
 export type RoomStatus = 'connecting' | 'awaiting' | 'connected' | 'error'
+
+export type { EncryptedBlob }
 
 export interface AdmittedPeer {
   peerId: string
@@ -29,11 +33,6 @@ export interface DecryptedMessage {
   sentAt: number
 }
 
-export interface EncryptedBlob {
-  iv: string
-  ciphertext: string
-}
-
 interface ExcalidrawAPI {
   updateScene(opts: { elements: unknown[] }): void
 }
@@ -44,7 +43,7 @@ export class Room {
   #id!: string
   #identity!: Identity
   #role!: Role
-  #roomKey: CryptoKey | null = null
+  #sessionKey: SessionKey | null = null
   #doc!: Y.Doc
   #webrtc!: WebrtcProvider
   #indexeddb!: IndexeddbPersistence
@@ -69,15 +68,12 @@ export class Room {
     const identity = await Identity.create(undefined, true)
     await identity.save()
     const roomId = crypto.randomUUID()
-    const roomKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
-      'encrypt',
-      'decrypt',
-    ])
-    await identity.saveRoomKey(roomKey, roomId)
+    const sessionKey = await SessionKey.generate()
+    await sessionKey.save(roomId)
     room.#id = roomId
     room.#identity = identity
     room.#role = ROLES.OWNER
-    room.#roomKey = roomKey
+    room.#sessionKey = sessionKey
     room.#doc = new Y.Doc()
     room.#indexeddb = new IndexeddbPersistence(YJS_ROOM_PREFIX + roomId, room.#doc)
     room.#webrtc = new WebrtcProvider(YJS_ROOM_PREFIX + roomId, room.#doc, {
@@ -124,8 +120,8 @@ export class Room {
       room.#webrtc.awareness.getStates().size === 0
 
     if (isOwnerSelfAdmit) {
-      room.#roomKey = await Identity.loadRoomKey(roomId)
-      if (!room.#roomKey) {
+      room.#sessionKey = await SessionKey.load(roomId)
+      if (!room.#sessionKey) {
         room.#status = 'error'
         room.#emit(
           'error',
@@ -219,7 +215,7 @@ export class Room {
         } else if (adm.type === 'admission-granted' && adm.forPeerId === String(myClientId)) {
           const wrappedRoomKey = adm.wrappedRoomKey as string | null
           if (wrappedRoomKey) {
-            this.#roomKey = await this.#identity.unwrapRoomKey(wrappedRoomKey)
+            this.#sessionKey = await this.#identity.unwrapToSessionKey(wrappedRoomKey)
           }
           this.#status = 'connected'
           this.#emit('status', 'connected')
@@ -294,9 +290,9 @@ export class Room {
               admittedAt: Date.now(),
             })
             let wrappedRoomKey: string | null = null
-            if (claim.role === ROLES.MODERATOR && pending.oaepPubKeyB64 && this.#roomKey) {
+            if (claim.role === ROLES.MODERATOR && pending.oaepPubKeyB64 && this.#sessionKey) {
               const oaepPubKey = await Identity.importOaepPublicKey(pending.oaepPubKeyB64)
-              wrappedRoomKey = await this.#identity.wrapRoomKey(this.#roomKey, oaepPubKey)
+              wrappedRoomKey = await this.#sessionKey.wrapFor(oaepPubKey)
             }
             this.#webrtc.awareness.setLocalStateField('adm', {
               type: 'admission-granted',
@@ -334,8 +330,8 @@ export class Room {
   }
 
   async #decryptAndCacheMessage(entry: EncryptedChatEntry): Promise<DecryptedMessage | null> {
-    if (!this.#roomKey) return null
-    const text = await this.#decrypt(entry)
+    if (!this.#sessionKey) return null
+    const text = await this.#sessionKey.decrypt(entry)
     const msg: DecryptedMessage = {
       id: entry.id,
       peerId: entry.senderId,
@@ -344,27 +340,6 @@ export class Room {
     }
     this.#messageCache.push(msg)
     return msg
-  }
-
-  async #encrypt(text: string): Promise<EncryptedBlob> {
-    if (!this.#roomKey) throw new RoomError('No room key')
-    const iv = crypto.getRandomValues(new Uint8Array(12))
-    const enc = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      this.#roomKey,
-      new TextEncoder().encode(text),
-    )
-    return { iv: bufferToBase64url(iv.buffer as ArrayBuffer), ciphertext: bufferToBase64url(enc) }
-  }
-
-  async #decrypt(blob: EncryptedBlob): Promise<string> {
-    if (!this.#roomKey) throw new RoomError('No room key')
-    const dec = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: base64urlToBuffer(blob.iv) },
-      this.#roomKey,
-      base64urlToBuffer(blob.ciphertext),
-    )
-    return new TextDecoder().decode(dec)
   }
 
   #emit(event: string, data: unknown): void {
@@ -463,8 +438,8 @@ export class Room {
 
   async sendMessage(text: string): Promise<void> {
     if (this.#role === ROLES.GUEST) throw new AuthError('Guests cannot send messages')
-    if (!this.#roomKey) throw new RoomError('No room key available')
-    const blob = await this.#encrypt(text)
+    if (!this.#sessionKey) throw new RoomError('No room key available')
+    const blob = await this.#sessionKey.encrypt(text)
     const entry: EncryptedChatEntry = {
       id: crypto.randomUUID(),
       senderId: this.#identity.id,
@@ -478,11 +453,11 @@ export class Room {
 
   async getMessages(options?: { before?: number; limit?: number }): Promise<DecryptedMessage[]> {
     if (this.#role === ROLES.GUEST) throw new AuthError('Guests cannot read messages')
-    if (!this.#roomKey) throw new RoomError('No room key available')
+    if (!this.#sessionKey) throw new RoomError('No room key available')
     const encrypted = this.#state.getEncryptedMessages(options)
     const decrypted = await Promise.all(
       encrypted.map((e) =>
-        this.#decrypt(e).then(
+        this.#sessionKey!.decrypt(e).then(
           (text) =>
             ({
               id: e.id,
@@ -498,8 +473,8 @@ export class Room {
 
   async updateInstructions(text: string): Promise<void> {
     if (this.#role === ROLES.GUEST) throw new AuthError('Guests cannot update instructions')
-    if (!this.#roomKey) throw new RoomError('No room key available')
-    const blob = await this.#encrypt(text)
+    if (!this.#sessionKey) throw new RoomError('No room key available')
+    const blob = await this.#sessionKey.encrypt(text)
     this.#state.setNotes(blob)
     this.#emit('instructions', text)
   }
@@ -508,8 +483,8 @@ export class Room {
     if (this.#role === ROLES.GUEST) throw new AuthError('Guests cannot read instructions')
     const blob = this.#state.getNotes()
     if (!blob) return ''
-    if (!this.#roomKey) throw new RoomError('No room key available')
-    return this.#decrypt(blob)
+    if (!this.#sessionKey) throw new RoomError('No room key available')
+    return this.#sessionKey.decrypt(blob)
   }
 
   destroy(): void {

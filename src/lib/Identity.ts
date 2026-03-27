@@ -4,6 +4,7 @@ import { STORAGE_KEYS } from '../constants'
 import type { Role } from '../constants'
 import { IdentityError } from './error/IdentityError'
 import { Claim } from './Claim'
+import { SessionKey } from './SessionKey'
 
 const SIGN_ALGO: RsaHashedKeyGenParams = {
   name: 'RSASSA-PKCS1-v1_5',
@@ -214,6 +215,12 @@ export class Identity {
       wrapped,
     )
     return crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt'])
+  }
+
+  async unwrapToSessionKey(wrappedKeyB64: string): Promise<SessionKey> {
+    if (!this.#oaepKeyPair)
+      throw new IdentityError('Cannot unwrap room key: OAEP key pair not present')
+    return SessionKey.fromWrapped(wrappedKeyB64, this.#oaepKeyPair.privateKey)
   }
 
   // CANONICAL: This replaces crypto/storage.ts::saveRoomKey/loadRoomKey
