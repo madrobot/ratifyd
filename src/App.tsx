@@ -10,7 +10,7 @@ interface RouteSnapshot {
 function getRouteSnapshot(): RouteSnapshot {
   return {
     isRoom: window.location.pathname.endsWith('/room'),
-    token: new URLSearchParams(window.location.hash.slice(1)).get('token'),
+    token: new URLSearchParams(window.location.hash.slice(1)).get('token') || null,
   }
 }
 
