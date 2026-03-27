@@ -24,7 +24,10 @@ async function mintValid(): Promise<Claim> {
     ROLES.OWNER,
     'iss-server',
     identity.signingPublicKey,
-    (data) => identity.sign(data instanceof ArrayBuffer ? data : (data as ArrayBufferView).buffer),
+    (data) =>
+      identity.sign(
+        data instanceof ArrayBuffer ? data : ((data as ArrayBufferView).buffer as ArrayBuffer),
+      ),
   )
 }
 
@@ -99,7 +102,9 @@ describe('Claim.mint()', () => {
       'iss',
       identity.signingPublicKey,
       (data) =>
-        identity.sign(data instanceof ArrayBuffer ? data : (data as ArrayBufferView).buffer),
+        identity.sign(
+          data instanceof ArrayBuffer ? data : ((data as ArrayBufferView).buffer as ArrayBuffer),
+        ),
       3600,
     )
     expect(claim.expiry).toBe(claim.issuedAt + 3600)

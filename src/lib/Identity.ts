@@ -64,13 +64,13 @@ export class Identity {
     return this.#label
   }
 
-  /** @internal Exposed for test assertions only — prefer verifyClaim() in production code */
+  /** @internal Exposed for test assertions only — prefer verifyOwnClaim() in production code */
   get signingPublicKey(): CryptoKey {
     if (!this.#signingKeyPair) throw new IdentityError('Invalid identity, missing signing key')
     return this.#signingKeyPair.publicKey
   }
 
-  async verifyClaim(token: string): Promise<Claim> {
+  async verifyOwnClaim(token: string): Promise<Claim> {
     if (!this.#signingKeyPair) throw new IdentityError('Cannot verify claim: no signing key pair')
     return Claim.verify(token, this.#signingKeyPair.publicKey)
   }
@@ -192,18 +192,6 @@ export class Identity {
     )
   }
 
-  async wrapRoomKey(roomKey: CryptoKey, recipientOaepPublicKey: CryptoKey): Promise<string> {
-    if (recipientOaepPublicKey.algorithm.name !== 'RSA-OAEP')
-      throw new IdentityError('recipientOaepPublicKey must be an RSA-OAEP key')
-    const rawKey = await crypto.subtle.exportKey('raw', roomKey)
-    const wrapped = await crypto.subtle.encrypt(
-      { name: 'RSA-OAEP' },
-      recipientOaepPublicKey,
-      rawKey,
-    )
-    return bufferToBase64url(wrapped)
-  }
-
   async unwrapRoomKey(wrappedKeyB64: string): Promise<CryptoKey> {
     if (!this.#oaepKeyPair)
       throw new IdentityError('Cannot unwrap room key: OAEP key pair not present')
@@ -214,23 +202,5 @@ export class Identity {
       wrapped,
     )
     return crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt'])
-  }
-
-  // CANONICAL: This replaces crypto/storage.ts::saveRoomKey/loadRoomKey
-  async saveRoomKey(roomKey: CryptoKey, roomId: string): Promise<void> {
-    // SECURITY: raw AES-GCM key persisted to localStorage (survives tab close and browser restart).
-    // Acceptable under the assumption that XSS on this origin is the primary threat and no additional
-    // key-wrapping mechanism is available in this OSS version.
-    const raw = await crypto.subtle.exportKey('raw', roomKey)
-    localStorage.setItem(`${STORAGE_KEYS.ROOM_KEY}:${roomId}`, bufferToBase64url(raw))
-  }
-
-  static async loadRoomKey(roomId: string): Promise<CryptoKey | null> {
-    const b64 = localStorage.getItem(`${STORAGE_KEYS.ROOM_KEY}:${roomId}`)
-    if (!b64) return null
-    return crypto.subtle.importKey('raw', base64urlToBuffer(b64), { name: 'AES-GCM' }, true, [
-      'encrypt',
-      'decrypt',
-    ])
   }
 }

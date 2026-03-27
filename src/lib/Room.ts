@@ -3,7 +3,7 @@ import { WebrtcProvider } from 'y-webrtc'
 import { IndexeddbPersistence } from 'y-indexeddb'
 import { MonacoBinding } from 'y-monaco'
 import type * as monaco from 'monaco-editor'
-import { ROLES, SIGNALING_SERVERS, YJS_ROOM_PREFIX } from '../constants'
+import { ROLES, SIGNALING_SERVERS, STORAGE_KEYS, YJS_ROOM_PREFIX } from '../constants'
 import type { Role } from '../constants'
 import { Claim } from './Claim'
 import { Identity } from './Identity'
@@ -73,19 +73,12 @@ export class Room {
       'encrypt',
       'decrypt',
     ])
-    await identity.saveRoomKey(roomKey, roomId)
+    await Room.#saveRoomKey(roomKey, roomId)
     room.#id = roomId
     room.#identity = identity
     room.#role = ROLES.OWNER
     room.#roomKey = roomKey
-    room.#doc = new Y.Doc()
-    room.#indexeddb = new IndexeddbPersistence(YJS_ROOM_PREFIX + roomId, room.#doc)
-    room.#webrtc = new WebrtcProvider(YJS_ROOM_PREFIX + roomId, room.#doc, {
-      signaling: SIGNALING_SERVERS,
-    })
-    await new Promise<void>((resolve) => room.#indexeddb.on('synced', resolve))
-    room.#state = new State(room.#doc)
-    room.#protocol = new SelfSovereignPKI()
+    await room.#initProviders(roomId)
     const claim = await identity.mintClaim(identity.id, roomId, ROLES.OWNER, identity.id)
     room.#state.addPeer(claim, await identity.getSigningPublicKeyB64())
     room.#token = claim.raw
@@ -102,21 +95,13 @@ export class Room {
     const roleHint = await Claim.peek(token, 'role')
     const issHint = await Claim.peek(token, 'iss')
     const needsOaep = roleHint !== ROLES.GUEST
-    const existingIdentity = await Identity.load()
     const identity =
-      existingIdentity ?? (await (await Identity.create(undefined, needsOaep)).save())
-    room.#id = roomId
+      (await Identity.load()) ?? (await (await Identity.create(undefined, needsOaep)).save())
     room.#identity = identity
     room.#role = roleHint as Role
     room.#token = token
-    room.#doc = new Y.Doc()
-    room.#indexeddb = new IndexeddbPersistence(YJS_ROOM_PREFIX + roomId, room.#doc)
-    room.#webrtc = new WebrtcProvider(YJS_ROOM_PREFIX + roomId, room.#doc, {
-      signaling: SIGNALING_SERVERS,
-    })
-    await new Promise<void>((resolve) => room.#indexeddb.on('synced', resolve))
-    room.#state = new State(room.#doc)
-    room.#protocol = new SelfSovereignPKI()
+    room.#id = roomId
+    await room.#initProviders(roomId)
 
     const isOwnerSelfAdmit =
       roleHint === ROLES.OWNER &&
@@ -124,7 +109,7 @@ export class Room {
       room.#webrtc.awareness.getStates().size === 0
 
     if (isOwnerSelfAdmit) {
-      room.#roomKey = await Identity.loadRoomKey(roomId)
+      room.#roomKey = await Room.#loadRoomKey(roomId)
       if (!room.#roomKey) {
         room.#status = 'error'
         room.#emit(
@@ -133,7 +118,7 @@ export class Room {
         )
         return room
       }
-      const claim = await identity.verifyClaim(token)
+      const claim = await identity.verifyOwnClaim(token)
       room.#state.addPeer(claim, await identity.getSigningPublicKeyB64())
       room.#setupPeerLeftListener()
       room.#setupOwnerSideHandlers()
@@ -156,7 +141,48 @@ export class Room {
     return room
   }
 
-  // ── Private methods ──────────────────────────────────────────────────────────
+  // ── Private static methods ────────────────────────────────────────────────
+
+  static async #saveRoomKey(roomKey: CryptoKey, roomId: string): Promise<void> {
+    // SECURITY: raw AES-GCM key persisted to localStorage (survives sessions);
+    // acceptable under the assumption that XSS on this origin is the primary threat
+    // and no additional key-wrapping mechanism is available in this OSS version.
+    const raw = await crypto.subtle.exportKey('raw', roomKey)
+    localStorage.setItem(`${STORAGE_KEYS.ROOM_KEY}:${roomId}`, bufferToBase64url(raw))
+  }
+
+  static async #loadRoomKey(roomId: string): Promise<CryptoKey | null> {
+    const b64 = localStorage.getItem(`${STORAGE_KEYS.ROOM_KEY}:${roomId}`)
+    if (!b64) return null
+    return crypto.subtle.importKey('raw', base64urlToBuffer(b64), { name: 'AES-GCM' }, true, [
+      'encrypt',
+      'decrypt',
+    ])
+  }
+
+  static async #wrapRoomKey(
+    roomKey: CryptoKey,
+    recipientOaepPublicKey: CryptoKey,
+  ): Promise<string> {
+    if (recipientOaepPublicKey.algorithm.name !== 'RSA-OAEP')
+      throw new RoomError('recipientOaepPublicKey must be an RSA-OAEP key')
+    const raw = await crypto.subtle.exportKey('raw', roomKey)
+    const wrapped = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, recipientOaepPublicKey, raw)
+    return bufferToBase64url(wrapped)
+  }
+
+  // ── Private instance methods ──────────────────────────────────────────────
+
+  async #initProviders(roomId: string): Promise<void> {
+    this.#doc = new Y.Doc()
+    this.#indexeddb = new IndexeddbPersistence(YJS_ROOM_PREFIX + roomId, this.#doc)
+    this.#webrtc = new WebrtcProvider(YJS_ROOM_PREFIX + roomId, this.#doc, {
+      signaling: SIGNALING_SERVERS,
+    })
+    await new Promise<void>((resolve) => this.#indexeddb.on('synced', resolve))
+    this.#state = new State(this.#doc)
+    this.#protocol = new SelfSovereignPKI()
+  }
 
   #setupPeerLeftListener(): void {
     const handler = ({ removed }: { removed: number[] }) => {
@@ -296,7 +322,7 @@ export class Room {
             let wrappedRoomKey: string | null = null
             if (claim.role === ROLES.MODERATOR && pending.oaepPubKeyB64 && this.#roomKey) {
               const oaepPubKey = await Identity.importOaepPublicKey(pending.oaepPubKeyB64)
-              wrappedRoomKey = await this.#identity.wrapRoomKey(this.#roomKey, oaepPubKey)
+              wrappedRoomKey = await Room.#wrapRoomKey(this.#roomKey, oaepPubKey)
             }
             this.#webrtc.awareness.setLocalStateField('adm', {
               type: 'admission-granted',
