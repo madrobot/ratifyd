@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { SelfSovereignPKI } from './SelfSovereignPKI'
 import { Identity } from './Identity'
 import { AuthError } from './error/AuthError'
-import { bufferToBase64url } from './helper'
+import { bufferToBase64url } from '../utils/helper'
 import { ROLES } from '../constants'
 
 // ── Constructor ───────────────────────────────────────────────────────────────

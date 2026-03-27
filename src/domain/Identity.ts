@@ -1,5 +1,5 @@
 import { generateUsername } from 'unique-username-generator'
-import { base64urlToBuffer, bufferToBase64url } from './helper'
+import { base64urlToBuffer, bufferToBase64url } from '../utils/helper'
 import { STORAGE_KEYS } from '../constants'
 import type { Role } from '../constants'
 import { IdentityError } from './error/IdentityError'

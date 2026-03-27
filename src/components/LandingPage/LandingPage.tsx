@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Room } from '../../lib/Room'
+import { Room } from '../../domain/Room'
 
 export default function LandingPage() {
   const [loading, setLoading] = useState(false)

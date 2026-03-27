@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Room } from '../lib/Room'
-import type { RoomStatus } from '../lib/Room'
+import { Room } from '../domain/Room'
+import type { RoomStatus } from '../domain/Room'
 
 export function useRoom(token: string | null): { room: Room | null; status: RoomStatus } {
   const [room, setRoom] = useState<Room | null>(null)

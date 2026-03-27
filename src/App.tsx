@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { parseFragment, type Route } from './lib/router'
+import { parseFragment, type Route } from './router'
 import LandingPage from './components/LandingPage/LandingPage'
 import Room from './components/Room/Room'
 

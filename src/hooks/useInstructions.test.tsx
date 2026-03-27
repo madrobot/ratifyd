@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useInstructions } from './useInstructions'
-import type { Room } from '../lib/Room'
+import type { Room } from '../domain/Room'
 
 function makeRoom(overrides?: Partial<Room>): Room {
   return {

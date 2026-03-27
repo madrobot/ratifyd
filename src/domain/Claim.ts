@@ -1,6 +1,6 @@
 import type { Role } from '../constants'
 import { TokenError } from './error/TokenError'
-import { base64urlToBuffer, bufferToBase64url } from './helper'
+import { base64urlToBuffer, bufferToBase64url } from '../utils/helper'
 
 export interface Header {
   alg: string

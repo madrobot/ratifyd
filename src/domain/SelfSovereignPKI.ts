@@ -1,7 +1,7 @@
 import { Claim } from './Claim'
 import { Identity } from './Identity'
 import { AuthError } from './error/AuthError'
-import { base64urlToBuffer } from './helper'
+import { base64urlToBuffer } from '../utils/helper'
 import { TTLMap } from './TTLMap'
 
 export class SelfSovereignPKI {

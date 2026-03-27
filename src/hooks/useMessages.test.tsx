@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useMessages } from './useMessages'
-import type { Room, DecryptedMessage } from '../lib/Room'
+import type { Room, DecryptedMessage } from '../domain/Room'
 
 function makeMessage(overrides?: Partial<DecryptedMessage>): DecryptedMessage {
   return {

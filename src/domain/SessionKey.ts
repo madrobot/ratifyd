@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from '../constants'
-import { bufferToBase64url, base64urlToBuffer } from './helper'
+import { bufferToBase64url, base64urlToBuffer } from '../utils/helper'
 import { SessionKeyError } from './error/SessionKeyError'
 
 export interface EncryptedBlob {

@@ -3,7 +3,7 @@ import { Claim } from './Claim'
 import { Identity } from './Identity'
 import { TokenError } from './error/TokenError'
 import { ROLES } from '../constants'
-import { bufferToBase64url, base64urlToBuffer } from './helper'
+import { bufferToBase64url, base64urlToBuffer } from '../utils/helper'
 
 // ---------------------------------------------------------------------------
 // Shared identity — RSA key generation is expensive; create once per suite

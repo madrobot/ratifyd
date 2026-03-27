@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Room } from '../lib/Room'
+import type { Room } from '../domain/Room'
 
 export function useInstructions(room: Room | null) {
   const [instructions, setInstructions] = useState('')

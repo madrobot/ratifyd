@@ -1,5 +1,5 @@
 import { useReducer, useEffect, useCallback } from 'react'
-import type { Room, DecryptedMessage } from '../lib/Room'
+import type { Room, DecryptedMessage } from '../domain/Room'
 
 interface State {
   messages: DecryptedMessage[]

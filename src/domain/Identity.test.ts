@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { Identity } from './Identity'
 import { IdentityError } from './error/IdentityError'
 import { ROLES } from '../constants'
-import { bufferToBase64url, base64urlToBuffer } from './helper'
+import { bufferToBase64url, base64urlToBuffer } from '../utils/helper'
 
 async function generateRoomKey(): Promise<CryptoKey> {
   return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt'])

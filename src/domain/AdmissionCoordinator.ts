@@ -4,7 +4,7 @@ import { SessionKey } from './SessionKey'
 import { SelfSovereignPKI } from './SelfSovereignPKI'
 import { State } from './State'
 import { ROLES } from '../constants'
-import { bufferToBase64url } from './helper'
+import { bufferToBase64url } from '../utils/helper'
 import type { AdmittedPeer, RoomStatus } from './Room'
 
 // ── Transport interface ───────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import { SelfSovereignPKI } from './SelfSovereignPKI'
 import { SessionKey } from './SessionKey'
 import { State } from './State'
 import { ROLES } from '../constants'
-import { bufferToBase64url } from './helper'
+import { bufferToBase64url } from '../utils/helper'
 import * as Y from 'yjs'
 
 // ── Fake transport ────────────────────────────────────────────────────────────

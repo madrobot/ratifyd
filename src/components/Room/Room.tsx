@@ -1,11 +1,8 @@
-import type { ClaimToken } from '../../constants'
-
-export default function Room({ token }: { token: ClaimToken }) {
+export default function Room({ token }: { token: string }) {
   return (
     <div>
       <h1>Room</h1>
-      <p>Room: {token.payload.room}</p>
-      <p>Role: {token.payload.role}</p>
+      <p>Token: {token}</p>
     </div>
   )
 }

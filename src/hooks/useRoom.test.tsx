@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useRoom } from './useRoom'
-import { Room } from '../lib/Room'
+import { Room } from '../domain/Room'
 
 vi.mock('../lib/Room', () => ({
   Room: {

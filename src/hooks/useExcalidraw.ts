@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
-import type { Room } from '../lib/Room'
+import type { Room } from '../domain/Room'
 
 // Minimal Excalidraw types (avoid importing the full package in hooks)
 interface ExcalidrawAPI {

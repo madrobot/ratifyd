@@ -63,8 +63,8 @@ export class Room {
 
   static async create(): Promise<Room> {
     const room = new Room()
-    const identity = await Identity.create(undefined, true)
-    await identity.save()
+    const identity =
+      (await Identity.load()) ?? (await (await Identity.create(undefined, true)).save())
     const roomId = crypto.randomUUID()
     const sessionKey = await SessionKey.generate()
     await sessionKey.save(roomId)
@@ -104,9 +104,8 @@ export class Room {
     const roleHint = await Claim.peek(token, 'role')
     const issHint = await Claim.peek(token, 'iss')
     const needsOaep = roleHint !== ROLES.GUEST
-    const existingIdentity = await Identity.load()
     const identity =
-      existingIdentity ?? (await (await Identity.create(undefined, needsOaep)).save())
+      (await Identity.load()) ?? (await (await Identity.create(undefined, needsOaep)).save())
     room.#id = roomId
     room.#identity = identity
     room.#role = roleHint as Role
