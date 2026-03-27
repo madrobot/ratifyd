@@ -3,15 +3,17 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { useRoom } from './useRoom'
 import { Room } from '../domain/Room'
 
-vi.mock('../lib/Room', () => ({
+vi.mock('../domain/Room', () => ({
   Room: {
     join: vi.fn(),
+    create: vi.fn(),
   },
 }))
 
 function makeRoom(overrides?: Partial<Room>): Room {
   return {
     status: 'connected',
+    token: 'mock-token',
     on: vi.fn(),
     off: vi.fn(),
     destroy: vi.fn(),
@@ -20,16 +22,88 @@ function makeRoom(overrides?: Partial<Room>): Room {
 }
 
 const mockedJoin = vi.mocked(Room.join)
+const mockedCreate = vi.mocked(Room.create)
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.spyOn(history, 'replaceState').mockImplementation(() => {})
 })
 
 describe('useRoom', () => {
-  it('returns null room and "connecting" status when token is null', () => {
+  it('returns null room and "connecting" status when token is null (before create resolves)', () => {
+    // create never resolves in this test so we stay in connecting
+    mockedCreate.mockImplementation(() => new Promise(() => {}))
     const { result } = renderHook(() => useRoom(null))
     expect(result.current.room).toBeNull()
     expect(result.current.status).toBe('connecting')
+  })
+
+  it('calls Room.create() when token is null', async () => {
+    const mockRoom = makeRoom({ status: 'connected', token: 'created-token' })
+    mockedCreate.mockResolvedValue(mockRoom)
+
+    const { result } = renderHook(() => useRoom(null))
+
+    await waitFor(() => {
+      expect(result.current.room).toBe(mockRoom)
+    })
+
+    expect(mockedCreate).toHaveBeenCalledOnce()
+    expect(mockedJoin).not.toHaveBeenCalled()
+  })
+
+  it('calls history.replaceState with the room token after Room.create() resolves', async () => {
+    const mockRoom = makeRoom({ status: 'connected', token: 'abc-jwt' })
+    mockedCreate.mockResolvedValue(mockRoom)
+
+    renderHook(() => useRoom(null))
+
+    await waitFor(() => {
+      expect(history.replaceState).toHaveBeenCalled()
+    })
+
+    expect(history.replaceState).toHaveBeenCalledWith(
+      null,
+      '',
+      '/room#' + new URLSearchParams({ token: 'abc-jwt' }),
+    )
+  })
+
+  it('destroys the room from Room.create() on unmount', async () => {
+    const mockRoom = makeRoom()
+    mockedCreate.mockResolvedValue(mockRoom)
+
+    const { result, unmount } = renderHook(() => useRoom(null))
+
+    await waitFor(() => {
+      expect(result.current.room).toBe(mockRoom)
+    })
+
+    unmount()
+
+    expect(mockRoom.destroy).toHaveBeenCalled()
+  })
+
+  it('destroys the room immediately if unmounted before Room.create() resolves', async () => {
+    let resolveCreate!: (r: Room) => void
+    mockedCreate.mockImplementation(
+      () =>
+        new Promise<Room>((res) => {
+          resolveCreate = res
+        }),
+    )
+
+    const { unmount } = renderHook(() => useRoom(null))
+    unmount()
+
+    const mockRoom = makeRoom()
+    act(() => {
+      resolveCreate(mockRoom)
+    })
+
+    await waitFor(() => {
+      expect(mockRoom.destroy).toHaveBeenCalled()
+    })
   })
 
   it('sets room and status after Room.join resolves', async () => {
@@ -44,6 +118,19 @@ describe('useRoom', () => {
 
     expect(result.current.status).toBe('connected')
     expect(mockRoom.on).toHaveBeenCalledWith('status', expect.any(Function))
+  })
+
+  it('does NOT call history.replaceState when token is provided (join path)', async () => {
+    const mockRoom = makeRoom({ status: 'connected' })
+    mockedJoin.mockResolvedValue(mockRoom)
+
+    const { result } = renderHook(() => useRoom('existing-token'))
+
+    await waitFor(() => {
+      expect(result.current.room).toBe(mockRoom)
+    })
+
+    expect(history.replaceState).not.toHaveBeenCalled()
   })
 
   it('sets status to "error" when Room.join rejects', async () => {

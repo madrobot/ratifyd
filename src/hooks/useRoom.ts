@@ -7,21 +7,25 @@ export function useRoom(token: string | null): { room: Room | null; status: Room
   const [status, setStatus] = useState<RoomStatus>('connecting')
 
   useEffect(() => {
-    if (!token) return
     let r: Room | undefined
     let cancelled = false
     const statusHandler = setStatus as (...args: unknown[]) => void
 
-    Room.join(token)
-      .then((joined) => {
+    const promise = token === null ? Room.create() : Room.join(token)
+
+    promise
+      .then((resolved) => {
         if (cancelled) {
-          joined.destroy()
+          resolved.destroy()
           return
         }
-        r = joined
+        r = resolved
         setRoom(r)
         setStatus(r.status)
         r.on('status', statusHandler)
+        if (token === null) {
+          history.replaceState(null, '', '/room#' + new URLSearchParams({ token: r.token }))
+        }
       })
       .catch(() => {
         if (!cancelled) setStatus('error')

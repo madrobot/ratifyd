@@ -27,8 +27,6 @@ export default function App() {
     }
   }, [])
 
-  if (route.isRoom)
-    // @ts-expect-error -- Task 4 will fix Room props
-    return <Room token={route.token} />
+  if (route.isRoom) return <Room token={route.token} />
   return <LandingPage />
 }
