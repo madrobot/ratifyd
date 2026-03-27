@@ -182,8 +182,10 @@ export class AdmissionCoordinator {
         this.#pendingAdmission.delete(String(clientId))
       }
     }
-    this.#transport.on('change', departureHandler)
-    this.#teardown.push(() => this.#transport.off('change', departureHandler))
+    this.#transport.on('change', departureHandler as (...args: unknown[]) => void)
+    this.#teardown.push(() =>
+      this.#transport.off('change', departureHandler as (...args: unknown[]) => void),
+    )
   }
 
   // ── Peer-side handler ───────────────────────────────────────────────────────

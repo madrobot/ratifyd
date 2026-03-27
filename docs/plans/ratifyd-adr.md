@@ -629,6 +629,17 @@ Fully static. Tokens in URL fragments — never sent to GitHub servers. Hash-bas
 
 Hash-based (`/#...`). Single `hashchange` listener in `App.jsx`. No router library. No 404 fallback needed.
 
+### 8.4 URL Rewrite After Room Creation
+
+After `Room.create()` resolves, `useRoom` rewrites the URL with the room token using `history.replaceState` rather than assigning to `window.location.hash`.
+
+**Why `replaceState` and not `window.location.hash =`:**
+
+- `replaceState` does NOT fire `hashchange` or `popstate` events.
+- This is intentional: the URL updates cosmetically without triggering a re-render in `App.tsx`, which listens to `hashchange`.
+- Assigning `window.location.hash = ...` would fire `hashchange`, causing `App.tsx` to re-parse the URL and re-render `<Room>` with the new token. This would re-invoke `useRoom`, which would call `Room.join()` on a room that was just created — creating a duplicate join attempt.
+- The pathname component is taken from `window.location.pathname` (not hardcoded) so that the rewrite is correct under any base-path deployment.
+
 ---
 
 ## 9. Tooling Integrations

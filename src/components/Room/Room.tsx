@@ -1,7 +1,7 @@
 import { useRoom } from '../../hooks/useRoom'
 
 export default function Room({ token }: { token: string | null }) {
-  const { status } = useRoom(token)
+  const { status } = useRoom(token) // room instance used in future Phase UI
 
   if (status === 'connecting') return <div>Connecting...</div>
   if (status === 'awaiting') return <div>Waiting for owner to join...</div>

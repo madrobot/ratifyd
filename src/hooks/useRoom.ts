@@ -9,7 +9,7 @@ export function useRoom(token: string | null): { room: Room | null; status: Room
   useEffect(() => {
     let r: Room | undefined
     let cancelled = false
-    const statusHandler = setStatus as (...args: unknown[]) => void
+    const statusHandler = (s: unknown) => setStatus(s as RoomStatus)
 
     const promise = token === null ? Room.create() : Room.join(token)
 
@@ -24,7 +24,11 @@ export function useRoom(token: string | null): { room: Room | null; status: Room
         setStatus(r.status)
         r.on('status', statusHandler)
         if (token === null) {
-          history.replaceState(null, '', '/room#' + new URLSearchParams({ token: r.token }))
+          history.replaceState(
+            null,
+            '',
+            window.location.pathname + '#' + new URLSearchParams({ token: r.token }),
+          )
         }
       })
       .catch(() => {

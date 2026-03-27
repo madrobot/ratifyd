@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useRoom } from './useRoom'
 import { Room } from '../domain/Room'
@@ -28,6 +28,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.spyOn(history, 'replaceState').mockImplementation(() => {})
 })
+
+afterEach(() => vi.restoreAllMocks())
 
 describe('useRoom', () => {
   it('returns null room and "connecting" status when token is null (before create resolves)', () => {
@@ -65,7 +67,7 @@ describe('useRoom', () => {
     expect(history.replaceState).toHaveBeenCalledWith(
       null,
       '',
-      '/room#' + new URLSearchParams({ token: 'abc-jwt' }),
+      window.location.pathname + '#' + new URLSearchParams({ token: 'abc-jwt' }),
     )
   })
 
