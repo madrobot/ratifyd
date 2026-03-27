@@ -9,6 +9,7 @@ interface RouteSnapshot {
 
 function getRouteSnapshot(): RouteSnapshot {
   return {
+    // endsWith handles both /room (dev) and /ratifyd/room (production base path)
     isRoom: window.location.pathname.endsWith('/room'),
     token: new URLSearchParams(window.location.hash.slice(1)).get('token') || null,
   }

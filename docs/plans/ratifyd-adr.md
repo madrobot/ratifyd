@@ -627,7 +627,7 @@ Fully static. Tokens in URL fragments — never sent to GitHub servers. Hash-bas
 
 ### 8.3 Routing
 
-Hash-based (`/#...`). Single `hashchange` listener in `App.jsx`. No router library. No 404 fallback needed.
+Path-based with hash token delivery. Route determined by pathname (e.g., `/room`), token passed in hash fragment (e.g., `#token=<JWT>`). `App.tsx` listens to both `hashchange` and `popstate` events. Vite's `appType: 'spa'` fallback serves `index.html` for all paths, enabling this routing without server-side config.
 
 ### 8.4 URL Rewrite After Room Creation
 

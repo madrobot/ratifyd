@@ -31,7 +31,8 @@ export function useRoom(token: string | null): { room: Room | null; status: Room
           )
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[useRoom] room setup failed:', err)
         if (!cancelled) setStatus('error')
       })
 
