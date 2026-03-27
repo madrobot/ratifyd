@@ -21,6 +21,9 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Worktrees
+.worktrees/
+
 # Debug logs
 npm-debug.log*
 pnpm-debug.log*

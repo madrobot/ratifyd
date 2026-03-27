@@ -4,7 +4,7 @@
 **Company:** Tenthbyte  
 **Domain:** `ratifyd.io` (TBD)  
 **Status:** Active / In Design  
-**Last Updated:** 2026-03-21
+**Last Updated:** 2026-03-26
 
 ---
 
@@ -213,6 +213,52 @@ Everything in the **URL fragment (`#`)** — never query params or path. Fragmen
 | Add Guest button                     | ✅ (once) | ✅ (once) | ❌    |
 | Admits peers                         | ✅ only   | ❌        | ❌    |
 | Distributes room key                 | ✅ only   | ❌        | ❌    |
+
+### 4.4 Domain Class Architecture
+
+The application logic has been refactored from standalone functions spread across `src/lib/{admission,crypto,jwt,room,yjs}` into a set of domain classes that encapsulate both state and operations:
+
+| Class                  | File                              | Responsibility                                                                                                                         |
+| ---------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `Room`                 | `src/lib/Room.ts`                 | Session orchestrator — WebRTC, IndexedDB, Yjs binding, lifecycle; delegates crypto to SessionKey and admission to AdmissionCoordinator |
+| `Identity`             | `src/lib/Identity.ts`             | Key management — signing, OAEP, room key storage; all key operations are instance methods                                              |
+| `Claim`                | `src/lib/Claim.ts`                | JWT lifecycle — mint (via signer callback), verify, peek                                                                               |
+| `SelfSovereignPKI`     | `src/lib/SelfSovereignPKI.ts`     | Admission protocol — nonce generation and challenge-response verification                                                              |
+| `State`                | `src/lib/State.ts`                | Yjs shared document — typed accessors, domain operations, encrypted blob storage                                                       |
+| `TTLMap`               | `src/lib/TTLMap.ts`               | TTL-expiring map used by `SelfSovereignPKI` for admission nonce tracking                                                               |
+| `SessionKey`           | `src/lib/SessionKey.ts`           | Symmetric crypto unit — AES-GCM encrypt/decrypt, key save/load, RSA-OAEP wrapping                                                      |
+| `AdmissionCoordinator` | `src/lib/AdmissionCoordinator.ts` | Admission state machine — challenge-response protocol, pending peer tracking                                                           |
+| `AppError`             | `src/lib/error/AppError.ts`       | Base error class; `AuthError`, `RoomError`, `TokenError`, `IdentityError`, `SessionKeyError` extend it                                 |
+
+**Design principles enforced by this architecture:**
+
+- Private keys never leave the `Identity` instance. All crypto operations (`sign`, `wrapRoomKey`, `unwrapRoomKey`) are methods on `Identity`.
+- The room key never leaves `SessionKey`. It is held as a private `#key` field; all operations (encrypt/decrypt/wrapFor) are methods on `SessionKey`.
+- `Claim` instances produced by `Claim.verify()` enforce expiry on every field access. Callers cannot accidentally read from an expired token.
+- `SelfSovereignPKI` scopes admission state (pending nonces) to the instance — no module-level state.
+
+**Absorbed modules:**
+
+The following directories have been deleted. Their logic is now entirely in the domain classes above:
+
+| Deleted module       | Absorbed into                      |
+| -------------------- | ---------------------------------- |
+| `src/lib/crypto/`    | `Identity.ts`                      |
+| `src/lib/jwt/`       | `Claim.ts`                         |
+| `src/lib/admission/` | `SelfSovereignPKI.ts` + `Room.ts`  |
+| `src/lib/yjs/`       | `State.ts` + `Room.ts`             |
+| `src/lib/room/`      | `Room.ts` + `src/hooks/useRoom.ts` |
+
+### 4.5 React Integration
+
+React components interact with the domain layer exclusively through thin hook wrappers. No component imports directly from `src/lib/` except `src/lib/Room.ts` and `src/lib/router.ts`.
+
+| Hook              | File                           | Purpose                                           |
+| ----------------- | ------------------------------ | ------------------------------------------------- |
+| `useRoom`         | `src/hooks/useRoom.ts`         | Join/create room, track status                    |
+| `useExcalidraw`   | `src/hooks/useExcalidraw.ts`   | Bind Excalidraw API to Room                       |
+| `useMessages`     | `src/hooks/useMessages.ts`     | Chat messages with lazy decryption and pagination |
+| `useInstructions` | `src/hooks/useInstructions.ts` | Interviewer instructions with real-time updates   |
 
 ---
 
@@ -581,7 +627,18 @@ Fully static. Tokens in URL fragments — never sent to GitHub servers. Hash-bas
 
 ### 8.3 Routing
 
-Hash-based (`/#...`). Single `hashchange` listener in `App.jsx`. No router library. No 404 fallback needed.
+Path-based with hash token delivery. Route determined by pathname (e.g., `/room`), token passed in hash fragment (e.g., `#token=<JWT>`). `App.tsx` listens to both `hashchange` and `popstate` events. Vite's `appType: 'spa'` fallback serves `index.html` for all paths, enabling this routing without server-side config.
+
+### 8.4 URL Rewrite After Room Creation
+
+After `Room.create()` resolves, `useRoom` rewrites the URL with the room token using `history.replaceState` rather than assigning to `window.location.hash`.
+
+**Why `replaceState` and not `window.location.hash =`:**
+
+- `replaceState` does NOT fire `hashchange` or `popstate` events.
+- This is intentional: the URL updates cosmetically without triggering a re-render in `App.tsx`, which listens to `hashchange`.
+- Assigning `window.location.hash = ...` would fire `hashchange`, causing `App.tsx` to re-parse the URL and re-render `<Room>` with the new token. This would re-invoke `useRoom`, which would call `Room.join()` on a room that was just created — creating a duplicate join attempt.
+- The pathname component is taken from `window.location.pathname` (not hardcoded) so that the rewrite is correct under any base-path deployment.
 
 ---
 
