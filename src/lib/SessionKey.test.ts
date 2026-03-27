@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { SessionKey } from './SessionKey'
+import { SessionKeyError } from './error/SessionKeyError'
 
 const OAEP_ALGO: RsaHashedKeyGenParams = {
   name: 'RSA-OAEP',
@@ -84,6 +85,25 @@ describe('SessionKey.fromWrapped()', () => {
     const key = await SessionKey.generate()
     const wrapped = await key.wrapFor(publicKey)
     await expect(SessionKey.fromWrapped(wrapped, wrongPrivateKey)).rejects.toThrow()
+  })
+
+  it('throws SessionKeyError when given a non-OAEP private key', async () => {
+    const signKeyPair = await crypto.subtle.generateKey(
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: 'SHA-256',
+      },
+      true,
+      ['sign', 'verify'],
+    )
+    const key = await SessionKey.generate()
+    const { publicKey } = await generateOaepPair()
+    const wrapped = await key.wrapFor(publicKey)
+    await expect(SessionKey.fromWrapped(wrapped, signKeyPair.privateKey)).rejects.toThrow(
+      SessionKeyError,
+    )
   })
 })
 

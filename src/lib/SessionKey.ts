@@ -1,6 +1,6 @@
 import { STORAGE_KEYS } from '../constants'
 import { bufferToBase64url, base64urlToBuffer } from './helper'
-import { RoomError } from './error/RoomError'
+import { SessionKeyError } from './error/SessionKeyError'
 
 export interface EncryptedBlob {
   iv: string
@@ -36,6 +36,9 @@ export class SessionKey {
   }
 
   static async fromWrapped(wrappedB64: string, oaepPrivKey: CryptoKey): Promise<SessionKey> {
+    if (oaepPrivKey.algorithm.name !== 'RSA-OAEP') {
+      throw new SessionKeyError('oaepPrivKey must be an RSA-OAEP key')
+    }
     const rawKey = await crypto.subtle.decrypt(
       { name: 'RSA-OAEP' },
       oaepPrivKey,
@@ -77,7 +80,7 @@ export class SessionKey {
 
   async wrapFor(recipientOaepPublicKey: CryptoKey): Promise<string> {
     if (recipientOaepPublicKey.algorithm.name !== 'RSA-OAEP') {
-      throw new RoomError('recipientOaepPublicKey must be an RSA-OAEP key')
+      throw new SessionKeyError('recipientOaepPublicKey must be an RSA-OAEP key')
     }
     const raw = await crypto.subtle.exportKey('raw', this.#key)
     const wrapped = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, recipientOaepPublicKey, raw)
