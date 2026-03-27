@@ -33,6 +33,10 @@ export class AdmissionTransport {
    * Returns an unsubscribe function.
    */
   onMessage(handler: (msg: AdmissionMessage, fromClientId: number) => void): () => void {
+    // NOTE: y-webrtc fires 'change' for any awareness update (cursor, role, adm field, etc.).
+    // On each change we re-scan all peer states and fire for any adm field present.
+    // Handlers must be idempotent — the same message may be delivered multiple times
+    // until the remote peer clears or replaces their adm field with a new message.
     const listener = () => {
       const states = this.#awareness.getStates()
       for (const [clientId, state] of states) {
