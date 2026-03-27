@@ -1,6 +1,6 @@
 export default function LandingPage() {
   const handleStart = () => {
-    window.location.href = '/room'
+    window.location.href = import.meta.env.BASE_URL + 'room'
   }
 
   return (
