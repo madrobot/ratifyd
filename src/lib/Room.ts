@@ -368,6 +368,14 @@ export class Room {
         ),
       ),
     )
+    // Merge into cache — avoid duplicates by id
+    const cachedIds = new Set(this.#messageCache.map((m) => m.id))
+    for (const msg of decrypted) {
+      if (!cachedIds.has(msg.id)) {
+        this.#messageCache.push(msg)
+        cachedIds.add(msg.id)
+      }
+    }
     return decrypted
   }
 

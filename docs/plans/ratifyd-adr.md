@@ -220,18 +220,20 @@ The application logic has been refactored from standalone functions spread acros
 
 | Class              | File                          | Responsibility                                                                            |
 | ------------------ | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| `Room`             | `src/lib/Room.ts`             | Session orchestrator — WebRTC, IndexedDB, admission, encrypted content, Yjs binding       |
+| `Room`             | `src/lib/Room.ts`             | Session orchestrator — WebRTC, IndexedDB, Yjs binding, lifecycle; delegates crypto to SessionKey and admission to AdmissionCoordinator |
 | `Identity`         | `src/lib/Identity.ts`         | Key management — signing, OAEP, room key storage; all key operations are instance methods |
 | `Claim`            | `src/lib/Claim.ts`            | JWT lifecycle — mint (via signer callback), verify, peek                                  |
 | `SelfSovereignPKI` | `src/lib/SelfSovereignPKI.ts` | Admission protocol — nonce generation and challenge-response verification                 |
 | `State`            | `src/lib/State.ts`            | Yjs shared document — typed accessors, domain operations, encrypted blob storage          |
 | `TTLMap`           | `src/lib/TTLMap.ts`           | TTL-expiring map used by `SelfSovereignPKI` for admission nonce tracking                  |
-| `AppError`         | `src/lib/error/AppError.ts`   | Base error class; `AuthError`, `RoomError`, `TokenError`, `IdentityError` extend it       |
+| `SessionKey`           | `src/lib/SessionKey.ts`           | Symmetric crypto unit — AES-GCM encrypt/decrypt, key save/load, RSA-OAEP wrapping  |
+| `AdmissionCoordinator` | `src/lib/AdmissionCoordinator.ts` | Admission state machine — challenge-response protocol, pending peer tracking         |
+| `AppError`         | `src/lib/error/AppError.ts`   | Base error class; `AuthError`, `RoomError`, `TokenError`, `IdentityError`, `SessionKeyError` extend it |
 
 **Design principles enforced by this architecture:**
 
 - Private keys never leave the `Identity` instance. All crypto operations (`sign`, `wrapRoomKey`, `unwrapRoomKey`) are methods on `Identity`.
-- The room key never leaves `Room`. It is held as a private `#roomKey` field; encrypt/decrypt operations are private methods.
+- The room key never leaves `SessionKey`. It is held as a private `#key` field; all operations (encrypt/decrypt/wrapFor) are methods on `SessionKey`.
 - `Claim` instances produced by `Claim.verify()` enforce expiry on every field access. Callers cannot accidentally read from an expired token.
 - `SelfSovereignPKI` scopes admission state (pending nonces) to the instance — no module-level state.
 
