@@ -4,4 +4,6 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/ratifyd/',
+  server: { historyApiFallback: true },
+  preview: { historyApiFallback: true },
 })
