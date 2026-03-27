@@ -1,24 +1,6 @@
-import { useState } from 'react'
-import { Room } from '../../domain/Room'
-
 export default function LandingPage() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleStart = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const room = await Room.create()
-      const params = new URLSearchParams()
-      params.set('token', room.token)
-      window.location.hash = params.toString()
-      room.destroy()
-    } catch (err) {
-      console.error(err)
-      setError('Failed to create session. Please try again.')
-      setLoading(false)
-    }
+  const handleStart = () => {
+    window.location.href = '/room'
   }
 
   return (
@@ -33,10 +15,7 @@ export default function LandingPage() {
     >
       <h1>Ratifyd</h1>
       <p>Ephemeral technical interviews. No account required.</p>
-      <button onClick={handleStart} disabled={loading}>
-        {loading ? 'Creating session...' : 'Start Session'}
-      </button>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <button onClick={handleStart}>Start Session</button>
     </div>
   )
 }

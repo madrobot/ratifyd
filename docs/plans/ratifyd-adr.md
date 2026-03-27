@@ -218,17 +218,17 @@ Everything in the **URL fragment (`#`)** — never query params or path. Fragmen
 
 The application logic has been refactored from standalone functions spread across `src/lib/{admission,crypto,jwt,room,yjs}` into a set of domain classes that encapsulate both state and operations:
 
-| Class              | File                          | Responsibility                                                                            |
-| ------------------ | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| `Room`             | `src/lib/Room.ts`             | Session orchestrator — WebRTC, IndexedDB, Yjs binding, lifecycle; delegates crypto to SessionKey and admission to AdmissionCoordinator |
-| `Identity`         | `src/lib/Identity.ts`         | Key management — signing, OAEP, room key storage; all key operations are instance methods |
-| `Claim`            | `src/lib/Claim.ts`            | JWT lifecycle — mint (via signer callback), verify, peek                                  |
-| `SelfSovereignPKI` | `src/lib/SelfSovereignPKI.ts` | Admission protocol — nonce generation and challenge-response verification                 |
-| `State`            | `src/lib/State.ts`            | Yjs shared document — typed accessors, domain operations, encrypted blob storage          |
-| `TTLMap`           | `src/lib/TTLMap.ts`           | TTL-expiring map used by `SelfSovereignPKI` for admission nonce tracking                  |
-| `SessionKey`           | `src/lib/SessionKey.ts`           | Symmetric crypto unit — AES-GCM encrypt/decrypt, key save/load, RSA-OAEP wrapping  |
-| `AdmissionCoordinator` | `src/lib/AdmissionCoordinator.ts` | Admission state machine — challenge-response protocol, pending peer tracking         |
-| `AppError`         | `src/lib/error/AppError.ts`   | Base error class; `AuthError`, `RoomError`, `TokenError`, `IdentityError`, `SessionKeyError` extend it |
+| Class                  | File                              | Responsibility                                                                                                                         |
+| ---------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `Room`                 | `src/lib/Room.ts`                 | Session orchestrator — WebRTC, IndexedDB, Yjs binding, lifecycle; delegates crypto to SessionKey and admission to AdmissionCoordinator |
+| `Identity`             | `src/lib/Identity.ts`             | Key management — signing, OAEP, room key storage; all key operations are instance methods                                              |
+| `Claim`                | `src/lib/Claim.ts`                | JWT lifecycle — mint (via signer callback), verify, peek                                                                               |
+| `SelfSovereignPKI`     | `src/lib/SelfSovereignPKI.ts`     | Admission protocol — nonce generation and challenge-response verification                                                              |
+| `State`                | `src/lib/State.ts`                | Yjs shared document — typed accessors, domain operations, encrypted blob storage                                                       |
+| `TTLMap`               | `src/lib/TTLMap.ts`               | TTL-expiring map used by `SelfSovereignPKI` for admission nonce tracking                                                               |
+| `SessionKey`           | `src/lib/SessionKey.ts`           | Symmetric crypto unit — AES-GCM encrypt/decrypt, key save/load, RSA-OAEP wrapping                                                      |
+| `AdmissionCoordinator` | `src/lib/AdmissionCoordinator.ts` | Admission state machine — challenge-response protocol, pending peer tracking                                                           |
+| `AppError`             | `src/lib/error/AppError.ts`       | Base error class; `AuthError`, `RoomError`, `TokenError`, `IdentityError`, `SessionKeyError` extend it                                 |
 
 **Design principles enforced by this architecture:**
 
