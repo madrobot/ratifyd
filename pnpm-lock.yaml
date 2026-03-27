@@ -41,6 +41,9 @@ importers:
       y-monaco:
         specifier: ^0.1.6
         version: 0.1.6(monaco-editor@0.55.1)(yjs@13.6.30)
+      y-protocols:
+        specifier: ^1.0.7
+        version: 1.0.7(yjs@13.6.30)
       y-webrtc:
         specifier: ^10.3.0
         version: 10.3.0(yjs@13.6.30)
