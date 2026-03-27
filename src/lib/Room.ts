@@ -9,6 +9,7 @@ import { Claim } from './Claim'
 import { Identity } from './Identity'
 import { SelfSovereignPKI } from './SelfSovereignPKI'
 import { State } from './State'
+import { AdmissionTransport } from './AdmissionTransport'
 import type { EncryptedChatEntry } from './State'
 import { AuthError } from './error/AuthError'
 import { RoomError } from './error/RoomError'
@@ -50,6 +51,7 @@ export class Room {
   #indexeddb!: IndexeddbPersistence
   #state!: State
   #protocol!: SelfSovereignPKI
+  #transport!: AdmissionTransport
   #status!: RoomStatus
   #emitter: Map<string, Set<(...args: unknown[]) => void>> = new Map()
   #messageCache: DecryptedMessage[] = []
@@ -128,7 +130,7 @@ export class Room {
       room.#setupOwnerSideHandlers()
       room.#setupPeerSideHandlers()
       room.#setupPeerLeftListener()
-      const ownerOnline = room.#isOwnerOnline()
+      const ownerOnline = room.#transport.hasOnlinePeer(ROLES.OWNER)
       if (ownerOnline) {
         room.#status = 'connecting'
         await room.#sendAdmissionRequest()
@@ -182,6 +184,7 @@ export class Room {
     await new Promise<void>((resolve) => this.#indexeddb.on('synced', resolve))
     this.#state = new State(this.#doc)
     this.#protocol = new SelfSovereignPKI()
+    this.#transport = new AdmissionTransport(this.#webrtc.awareness)
   }
 
   #setupPeerLeftListener(): void {
@@ -196,15 +199,10 @@ export class Room {
     })
   }
 
-  #isOwnerOnline(): boolean {
-    const states = this.#webrtc.awareness.getStates()
-    return [...states.values()].some((s) => (s as Record<string, unknown>)['role'] === ROLES.OWNER)
-  }
-
   #setupAwaitingOwnerWatch(): void {
     const handler = async () => {
       if (this.#status !== 'awaiting') return
-      if (this.#isOwnerOnline()) {
+      if (this.#transport.hasOnlinePeer(ROLES.OWNER)) {
         this.#status = 'connecting'
         await this.#sendAdmissionRequest()
       }
@@ -216,130 +214,104 @@ export class Room {
   }
 
   async #sendAdmissionRequest(): Promise<void> {
-    const state = {
+    this.#transport.send({
       type: 'admission-request',
       token: this.#token,
       signingPubKeyB64: await this.#identity.getSigningPublicKeyB64(),
       oaepPubKeyB64: await this.#identity.getOaepPublicKeyB64(),
-    }
-    this.#webrtc.awareness.setLocalStateField('adm', state)
+    })
   }
 
   #setupPeerSideHandlers(): void {
-    const myClientId = this.#webrtc.awareness.clientID
-    const handler = async (_: unknown, origin: unknown) => {
-      if (origin === 'local') return
-      const states = this.#webrtc.awareness.getStates()
-      for (const [clientId, state] of states) {
-        if (clientId === myClientId) continue
-        const adm = (state as Record<string, unknown>).adm as Record<string, unknown> | undefined
-        if (!adm) continue
-        if (adm.type === 'admission-nonce' && adm.forPeerId === String(myClientId)) {
-          const nonce = adm.nonce as string
-          const sig = await this.#identity.sign(nonce)
-          this.#webrtc.awareness.setLocalStateField('adm', {
-            type: 'admission-response',
-            token: this.#token,
-            signatureB64: bufferToBase64url(sig),
-          })
-        } else if (adm.type === 'admission-granted' && adm.forPeerId === String(myClientId)) {
-          const wrappedRoomKey = adm.wrappedRoomKey as string | null
-          if (wrappedRoomKey) {
-            this.#roomKey = await this.#identity.unwrapRoomKey(wrappedRoomKey)
-          }
-          this.#status = 'connected'
-          this.#emit('status', 'connected')
-          this.#setupMessageObserver()
+    const unsub = this.#transport.onMessage(async (msg) => {
+      if (msg.type === 'admission-nonce' && msg.forPeerId === String(this.#transport.clientId)) {
+        const sig = await this.#identity.sign(msg.nonce)
+        this.#transport.send({
+          type: 'admission-response',
+          token: this.#token,
+          signatureB64: bufferToBase64url(sig),
+        })
+      } else if (
+        msg.type === 'admission-granted' &&
+        msg.forPeerId === String(this.#transport.clientId)
+      ) {
+        if (msg.wrappedRoomKey) {
+          this.#roomKey = await this.#identity.unwrapRoomKey(msg.wrappedRoomKey)
         }
+        this.#status = 'connected'
+        this.#emit('status', 'connected')
+        this.#setupMessageObserver()
       }
-    }
-    this.#webrtc.awareness.on('change', handler)
-    this.#teardown.push(() => {
-      this.#webrtc.awareness.off('change', handler)
     })
+    this.#teardown.push(unsub)
   }
 
   #setupOwnerSideHandlers(): void {
-    const myClientId = this.#webrtc.awareness.clientID
-    const handler = async () => {
+    const unsub = this.#transport.onMessage(async (msg, fromClientId) => {
       if (this.#role !== ROLES.OWNER) return
-      const states = this.#webrtc.awareness.getStates()
-      for (const [clientId, state] of states) {
-        if (clientId === myClientId) continue
-        const adm = (state as Record<string, unknown>).adm as Record<string, unknown> | undefined
-        if (!adm) continue
-        if (adm.type === 'admission-request') {
-          const admToken = adm.token as string
-          const signingPubKeyB64 = adm.signingPubKeyB64 as string
-          const oaepPubKeyB64 = adm.oaepPubKeyB64 as string | null
-          const iss = await Claim.peek(admToken, 'iss')
-          const issuerKeyB64 = this.#state.getIssuerSigningPublicKey(iss)
-          if (!issuerKeyB64) return
-          try {
-            const { nonce } = await this.#protocol.requestAdmission(admToken, issuerKeyB64)
-            this.#webrtc.awareness.setLocalStateField('adm', {
-              type: 'admission-nonce',
-              forPeerId: String(clientId),
-              nonce,
-            })
-            this.#pendingAdmission.set(String(clientId), {
-              token: admToken,
-              signingPubKeyB64,
-              oaepPubKeyB64,
-            })
-          } catch {
-            /* invalid token, ignore */
-          }
-        } else if (adm.type === 'admission-response') {
-          const admToken = adm.token as string
-          const signatureB64 = adm.signatureB64 as string
-          const pending = this.#pendingAdmission.get(String(clientId))
-          if (!pending || pending.token !== admToken) return
-          const iss = await Claim.peek(admToken, 'iss')
-          const issuerKeyB64 = this.#state.getIssuerSigningPublicKey(iss)
-          if (!issuerKeyB64) return // unknown issuer at response time, ignore
-          const knownPubKey = this.#state.getInviteSigningPublicKey(
-            await Claim.peek(admToken, 'jti'),
+      if (msg.type === 'admission-request') {
+        const iss = await Claim.peek(msg.token, 'iss')
+        const issuerKeyB64 = this.#state.getIssuerSigningPublicKey(iss)
+        if (!issuerKeyB64) return
+        try {
+          const { nonce } = await this.#protocol.requestAdmission(msg.token, issuerKeyB64)
+          this.#transport.send({
+            type: 'admission-nonce',
+            forPeerId: String(fromClientId),
+            nonce,
+          })
+          this.#pendingAdmission.set(String(fromClientId), {
+            token: msg.token,
+            signingPubKeyB64: msg.signingPubKeyB64,
+            oaepPubKeyB64: msg.oaepPubKeyB64,
+          })
+        } catch {
+          /* invalid token, ignore */
+        }
+      } else if (msg.type === 'admission-response') {
+        const pending = this.#pendingAdmission.get(String(fromClientId))
+        if (!pending || pending.token !== msg.token) return
+        const iss = await Claim.peek(msg.token, 'iss')
+        const issuerKeyB64 = this.#state.getIssuerSigningPublicKey(iss)
+        if (!issuerKeyB64) return // unknown issuer at response time, ignore
+        const knownPubKey = this.#state.getInviteSigningPublicKey(
+          await Claim.peek(msg.token, 'jti'),
+        )
+        try {
+          await this.#protocol.respondToChallenge(
+            msg.token,
+            issuerKeyB64,
+            pending.signingPubKeyB64,
+            msg.signatureB64,
+            knownPubKey,
           )
-          try {
-            await this.#protocol.respondToChallenge(
-              admToken,
-              issuerKeyB64,
-              pending.signingPubKeyB64,
-              signatureB64,
-              knownPubKey,
-            )
-            const claim = await Claim.verify(
-              admToken,
-              await Identity.importSigningPublicKey(issuerKeyB64),
-            )
-            this.#state.addPeer(claim, pending.signingPubKeyB64)
-            this.#emit('peer-admitted', {
-              peerId: String(clientId),
-              role: claim.role,
-              admittedAt: Date.now(),
-            })
-            let wrappedRoomKey: string | null = null
-            if (claim.role === ROLES.MODERATOR && pending.oaepPubKeyB64 && this.#roomKey) {
-              const oaepPubKey = await Identity.importOaepPublicKey(pending.oaepPubKeyB64)
-              wrappedRoomKey = await Room.#wrapRoomKey(this.#roomKey, oaepPubKey)
-            }
-            this.#webrtc.awareness.setLocalStateField('adm', {
-              type: 'admission-granted',
-              forPeerId: String(clientId),
-              wrappedRoomKey,
-            })
-            this.#pendingAdmission.delete(String(clientId))
-          } catch {
-            /* invalid signature, ignore */
+          const claim = await Claim.verify(
+            msg.token,
+            await Identity.importSigningPublicKey(issuerKeyB64),
+          )
+          this.#state.addPeer(claim, pending.signingPubKeyB64)
+          this.#emit('peer-admitted', {
+            peerId: String(fromClientId),
+            role: claim.role,
+            admittedAt: Date.now(),
+          })
+          let wrappedRoomKey: string | null = null
+          if (claim.role === ROLES.MODERATOR && pending.oaepPubKeyB64 && this.#roomKey) {
+            const oaepPubKey = await Identity.importOaepPublicKey(pending.oaepPubKeyB64)
+            wrappedRoomKey = await Room.#wrapRoomKey(this.#roomKey, oaepPubKey)
           }
+          this.#transport.send({
+            type: 'admission-granted',
+            forPeerId: String(fromClientId),
+            wrappedRoomKey,
+          })
+          this.#pendingAdmission.delete(String(fromClientId))
+        } catch {
+          /* invalid signature, ignore */
         }
       }
-    }
-    this.#webrtc.awareness.on('change', handler)
-    this.#teardown.push(() => {
-      this.#webrtc.awareness.off('change', handler)
     })
+    this.#teardown.push(unsub)
   }
 
   #setupMessageObserver(): void {
@@ -543,6 +515,7 @@ export class Room {
     this.#destroyed = true
     for (const cleanup of this.#teardown) cleanup()
     this.#teardown = []
+    this.#transport.destroy()
     this.#protocol.destroy()
     this.#webrtc.destroy()
     this.#indexeddb.destroy()
